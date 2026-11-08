@@ -1,0 +1,3415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EnerTrack</title>
+    <!-- Web App Manifest for PWA Installation -->
+    <link rel="manifest" href="data:application/manifest+json;charset=utf-8,%7B%22name%22%3A%22G12%20Moi%20Uni%20Energy%20Audit%22%2C%22short_name%22%3A%22G12%20Audit%22%2C%22start_url%22%3A%22.%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%23121824%22%2C%22theme_color%22%3A%22%2304e617%22%2C%22icons%22%3A%5B%7B%22src%22%3A%22https%3A%2F%2Fimg.magnific.com%2Fpremium-vector%2F3d-golden-negative-shape-lightning-logo_1313929-941.jpg%3Fsemt%3Dais_hybrid%26w%3D192%26q%3D80%22%2C%22sizes%22%3A%22192x192%22%2C%22type%22%3A%22image%2Fjpeg%22%7D%2C%7B%22src%22%3A%22https%3A%2F%2Fimg.magnific.com%2Fpremium-vector%2F3d-golden-negative-shape-lightning-logo_1313929-941.jpg%3Fsemt%3Dais_hybrid%26w%3D512%26q%3D80%22%2C%22sizes%22%3A%22512x512%22%2C%22type%22%3A%22image%2Fjpeg%22%7D%5D%7D">
+    <meta name="theme-color" content="#04e617">
+    <!-- Chart.js CDN for graphical representations -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Three.js CDN for 3D Electrical Power Logo -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style id="dynamicPrintStyle">
+        @page {
+            margin: 1.2cm;
+            size: A4 portrait;
+        }
+    </style>
+    <style>
+        * {
+            box-sizing: border-box;
+            padding: 0;
+            margin: 0;
+        }
+
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #121824;
+            color: #e2e8f0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Site Header */
+        .site-header {
+            background: linear-gradient(135deg, rgba(4, 230, 23, 0.9) 0%, rgba(2, 140, 14, 0.95) 100%);
+            border-bottom: 1px solid #2d3748;
+            padding: 0.5rem 1rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            backdrop-filter: blur(8px);
+        }
+
+        .header-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            max-width: 1400px;
+            margin: 0 auto;
+            width: 100%;
+            gap: 0.75rem;
+        }
+
+        /* Logo & Brand Title */
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            flex: 0 0 auto;
+            justify-content: flex-start;
+        }
+
+        .logo-3d-container {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            overflow: hidden;
+            background: #0f172a;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .logo-3d-container canvas {
+            width: 100% !important;
+            height: 100% !important;
+        }
+
+        .brand h1 {
+            margin: 0;
+            font-size: 0.95rem;
+            letter-spacing: 0.6px;
+            color: #ffffff;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .brand h1 span {
+            color: #ffbb00;
+            font-weight: 800;
+        }
+
+        /* Centered Navigation Tabs */
+        .nav-tabs {
+            display: flex;
+            gap: 0.3rem;
+            background: rgba(0, 0, 0, 0.25);
+            padding: 0.2rem;
+            border-radius: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            flex-shrink: 0;
+            margin: 0 auto; /* Perfect centering in header */
+        }
+
+        .nav-btn {
+            background: transparent;
+            border: none;
+            color: #e2e8f0;
+            padding: 0.35rem 0.65rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+        }
+
+        .nav-btn:hover {
+            color: #ffffff;
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        .nav-btn.active {
+            background: #ffffff;
+            color: #121824;
+            font-weight: 700;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+        }
+
+        /* User Pill & Action Buttons - AUTO-FITTING FLEX CONTENT */
+        .user-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 0.75rem;
+            color: #ffffff;
+            background: rgba(0, 0, 0, 0.35);
+            padding: 0.25rem 0.6rem;
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            width: auto; /* Fits to exact content */
+            max-width: 260px; /* Limits excessive stretch */
+            flex-shrink: 0;
+        }
+
+        .userNameDisplaySpan {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-weight: 600;
+            max-width: 150px;
+            display: inline-block;
+            vertical-align: middle;
+        }
+
+        .btn-logout {
+            background: #ef4444;
+            color: #ffffff;
+            border: none;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.65rem;
+            cursor: pointer;
+            font-weight: 600;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        /* Container Layout */
+        .container {
+            max-width: 1200px;
+            width: 100%;
+            margin: 0 auto;
+            padding: 1.5rem 1rem 3rem 1rem;
+        }
+
+        .page-view {
+            display: none;
+        }
+
+        .page-view.active {
+            display: block;
+        }
+
+        /* Hero Banner */
+        .hero-banner {
+            width: 100%;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+            border: 1px solid #2d3748;
+            background-color: #1a202c;
+            position: relative;
+            margin-bottom: 1.5rem;
+        }
+
+        .campus-img {
+            width: 100%;
+            height: 260px;
+            object-fit: cover;
+            display: block;
+        }
+
+        .hero-overlay {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(to top, rgba(18, 24, 36, 0.95), rgba(18, 24, 36, 0));
+            padding: 1.25rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            gap: 0.5rem;
+        }
+
+        .hero-title {
+            color: #ffffff;
+            font-size: 1.15rem;
+            font-weight: 700;
+        }
+
+        .hero-badge {
+            background: rgba(255, 187, 0, 0.2);
+            border: 1px solid #ffbb00;
+            color: #ffbb00;
+            padding: 0.25rem 0.6rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+
+        /* Tariff Box */
+        .tariff-setting {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #1a202c;
+            padding: 1rem 1.25rem;
+            border-radius: 10px;
+            border: 1px solid #2d3748;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .tariff-setting label {
+            color: #e2e8f0;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
+        .tariff-setting input {
+            width: 110px;
+            padding: 0.45rem 0.75rem;
+            text-align: right;
+            color: #04e617;
+            font-weight: 700;
+            background: #0f172a;
+            border: 1px solid #334155;
+            border-radius: 6px;
+        }
+
+        /* KPI Grid */
+        .card-row {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 0.85rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .box {
+            background-color: #1a202c;
+            border: 1px solid #2d3748;
+            border-left: 5px solid #ffbb00;
+            border-radius: 10px;
+            padding: 0.85rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+        }
+
+        .box.active-power-box { border-left-color: #04e617; }
+        .box.reactive-power-box { border-left-color: #06b6d4; }
+        .box.kva-box { border-left-color: #a855f7; }
+        .box.carbon-box { border-left-color: #3b82f6; }
+
+        .box h4 {
+            margin: 0 0 0.4rem 0;
+            color: #a0aec0;
+            font-size: 0.68rem;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            font-weight: 600;
+        }
+
+        .box-value {
+            color: #ffffff;
+            font-size: 1.05rem;
+            font-weight: 700;
+            word-break: break-word;
+        }
+
+        /* Panels & Forms */
+        .card-panel {
+            background-color: #1a202c;
+            border: 1px solid #2d3748;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+            margin-bottom: 1.5rem;
+            overflow: hidden;
+        }
+
+        .card-panel h4 {
+            color: #ffbb00;
+            font-size: 1.1rem;
+            margin-bottom: 1.25rem;
+            font-weight: 700;
+            border-bottom: 1px solid #2d3748;
+            padding-bottom: 0.6rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1.25rem;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+        }
+
+        label {
+            font-size: 0.85rem;
+            color: #cbd5e1;
+            font-weight: 600;
+        }
+
+        input, select, textarea {
+            width: 100%;
+            background-color: #0f172a;
+            border: 1px solid #334155;
+            color: #ffffff;
+            padding: 0.65rem 0.85rem;
+            border-radius: 6px;
+            font-size: 0.95rem;
+            outline: none;
+            transition: border-color 0.2s;
+            font-family: inherit;
+        }
+
+        input:focus, select:focus, textarea:focus {
+            border-color: #04e617;
+        }
+
+        .btn-calc {
+            grid-column: span 2;
+            background: linear-gradient(135deg, #04e617 0%, #02a810 100%);
+            color: #000000;
+            font-weight: 700;
+            font-size: 0.95rem;
+            padding: 0.85rem;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin-top: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .btn-calc:hover {
+            opacity: 0.95;
+            box-shadow: 0 4px 12px rgba(4, 230, 23, 0.3);
+        }
+
+        .action-row {
+            display: flex;
+            gap: 0.75rem;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .btn-action {
+            background: #232d3f;
+            color: #e2e8f0;
+            border: 1px solid #2d3748;
+            padding: 0.45rem 0.85rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            font-weight: 600;
+            transition: all 0.2s ease;
+        }
+
+        .btn-action:hover {
+            background: #2d3748;
+            color: #ffffff;
+        }
+
+        .btn-clear-all {
+            background: rgba(239, 68, 68, 0.15);
+            color: #f87171;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            padding: 0.45rem 0.85rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            font-weight: 600;
+            transition: all 0.2s ease;
+        }
+
+        .btn-clear-all:hover {
+            background: #ef4444;
+            color: #ffffff;
+        }
+
+        /* Print Orientation Control Component */
+        .print-orientation-control {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: #0f172a;
+            border: 1px solid #334155;
+            padding: 0.35rem 0.75rem;
+            border-radius: 6px;
+            font-size: 0.8rem;
+        }
+
+        .print-orientation-control label {
+            color: #a0aec0;
+            font-size: 0.75rem;
+            white-space: nowrap;
+        }
+
+        .print-orientation-control select {
+            width: auto;
+            padding: 0.25rem 0.5rem;
+            font-size: 0.8rem;
+            background: #1a202c;
+            border: 1px solid #475569;
+            color: #04e617;
+            font-weight: 600;
+        }
+
+        /* Facility Header Display */
+        .facility-display-bar {
+            background: #0f172a;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            margin-bottom: 1.25rem;
+            display: flex;
+            gap: 1.5rem;
+            flex-wrap: wrap;
+            font-size: 0.85rem;
+            color: #cbd5e1;
+        }
+
+        .facility-display-bar span {
+            color: #ffbb00;
+            font-weight: 700;
+        }
+
+        .facility-picker {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 1.25rem;
+        }
+
+        .university-kpis {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .facility-hint {
+            color: #94a3b8;
+            font-size: 0.82rem;
+            margin-top: 0.35rem;
+        }
+
+        .ai-report-panel {
+            border-left: 5px solid #04e617;
+        }
+
+        .ai-report-content {
+            color: #e2e8f0;
+            line-height: 1.7;
+            white-space: pre-wrap;
+            min-height: 3rem;
+        }
+
+        .profile-role {
+            display: inline-block;
+            border: 1px solid #334155;
+            border-radius: 999px;
+            padding: 0.2rem 0.65rem;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .role-admin {
+            color: #ffbb00;
+            border-color: #ffbb00;
+        }
+
+        .role-auditor {
+            color: #04e617;
+            border-color: #04e617;
+        }
+
+        .submission-card {
+            border: 1px solid #334155;
+            border-radius: 10px;
+            padding: 1rem;
+            margin-top: 1rem;
+            background: #111827;
+        }
+
+        .submission-card h5 {
+            color: #ffbb00;
+            font-size: 1rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .submission-equipment {
+            display: grid;
+            grid-template-columns: repeat(6, minmax(100px, 1fr)) auto;
+            gap: 0.5rem;
+            align-items: center;
+            margin: 0.5rem 0;
+        }
+
+        .submission-equipment input {
+            min-width: 0;
+            padding: 0.45rem;
+            font-size: 0.8rem;
+        }
+
+        .submission-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .history-entry {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+            gap: 0.75rem;
+            align-items: end;
+            margin-bottom: 0.75rem;
+        }
+
+        .audit-photo-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 0.75rem;
+            margin-top: 1rem;
+        }
+
+        .audit-photo-card {
+            background: #0f172a;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            overflow: hidden;
+            min-width: 0;
+        }
+
+        .audit-photo-card img {
+            display: block;
+            width: 100%;
+            height: 130px;
+            object-fit: cover;
+        }
+
+        .audit-photo-card figcaption {
+            padding: 0.5rem;
+            color: #cbd5e1;
+            font-size: 0.78rem;
+            overflow-wrap: anywhere;
+        }
+
+        .audit-photo-card button {
+            margin: 0 0.5rem 0.5rem;
+        }
+
+        .report-photo {
+            display: inline-block;
+            width: 46%;
+            max-height: 220px;
+            object-fit: contain;
+            vertical-align: top;
+            margin: 0 2% 1rem 0;
+            border: 1px solid #cbd5e1;
+        }
+
+        @media (max-width: 900px) {
+            .container { padding: 1rem 0.75rem 2rem; }
+            .card-panel { padding: 1.1rem; }
+            .card-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .nav-tabs {
+                max-width: 100%;
+                overflow-x: auto;
+                justify-content: flex-start;
+                scrollbar-width: thin;
+                -webkit-overflow-scrolling: touch;
+            }
+            .nav-btn { flex: 0 0 auto; }
+            .submission-equipment { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        }
+
+        /* Inventory Table */
+        .table-responsive {
+            overflow-x: auto;
+            border-radius: 8px;
+            border: 1px solid #2d3748;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+            text-align: left;
+            min-width: 650px;
+        }
+
+        th {
+            background-color: #0f172a;
+            color: #a0aec0;
+            padding: 0.75rem 0.85rem;
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid #2d3748;
+            white-space: nowrap;
+        }
+
+        td {
+            padding: 0.85rem 0.85rem;
+            border-bottom: 1px solid #2a3447;
+            color: #e2e8f0;
+            white-space: nowrap;
+        }
+
+        .empty-state {
+            text-align: center;
+            color: #64748b;
+            padding: 2.5rem 1rem;
+            font-style: italic;
+            white-space: normal;
+        }
+
+        .badge-pill {
+            background: rgba(255, 255, 255, 0.08);
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
+        }
+
+        .btn-delete {
+            background-color: rgba(239, 68, 68, 0.2);
+            color: #f87171;
+            border: 1px solid rgba(239, 68, 68, 0.4);
+            padding: 0.3rem 0.6rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            cursor: pointer;
+        }
+
+        .btn-delete:hover {
+            background-color: #ef4444;
+            color: #ffffff;
+        }
+
+        /* Chart Canvas Container */
+        .chart-box-single {
+            position: relative;
+            height: 380px;
+            width: 100%;
+            max-width: 100%;
+            overflow: hidden;
+            box-sizing: border-box;
+            padding: 0.5rem;
+        }
+
+        .chart-box-single canvas {
+            max-width: 100% !important;
+            max-height: 100% !important;
+            width: 100% !important;
+            height: 100% !important;
+            display: block;
+        }
+
+        .chart-unavailable {
+            color: #94a3b8;
+            text-align: center;
+            padding: 2rem 1rem;
+        }
+
+        /* Energy Conservation Section */
+        .strategy-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1.25rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .strategy-card {
+            background: #1a202c;
+            border: 1px solid #2d3748;
+            border-radius: 10px;
+            padding: 1.25rem;
+            transition: transform 0.2s;
+        }
+
+        .strategy-card:hover {
+            transform: translateY(-2px);
+            border-color: #04e617;
+        }
+
+        .strategy-card h5 {
+            color: #04e617;
+            font-size: 1rem;
+            margin-bottom: 0.6rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .strategy-card ul {
+            padding-left: 1.2rem;
+            color: #cbd5e1;
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        /* Auditor Recommendations Panel */
+        .auditor-comments-panel {
+            background: #1e293b;
+            border: 2px solid #04e617;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 6px 20px rgba(4, 230, 23, 0.15);
+        }
+
+        .auditor-comments-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1.25rem;
+            margin-top: 1rem;
+        }
+
+        .auditor-comment-box {
+            background: #0f172a;
+            border: 1px solid #334155;
+            border-left: 4px solid #ffbb00;
+            border-radius: 8px;
+            padding: 1.25rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            position: relative;
+        }
+
+        .auditor-comment-box label {
+            color: #ffbb00;
+            font-weight: 700;
+            font-size: 0.95rem;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .auditor-comment-box input.load-type-input {
+            font-weight: 700;
+            background: #1e293b;
+            border: 1px solid #475569;
+            color: #ffbb00;
+            font-size: 0.95rem;
+        }
+
+        .auditor-comment-box textarea {
+            resize: vertical;
+            min-height: 220px;
+            font-size: 0.95rem;
+            line-height: 1.6;
+            background: #1e293b;
+            color: #ffffff;
+            border: 1px solid #475569;
+            padding: 0.75rem;
+        }
+
+        .auditor-comment-box textarea:focus {
+            border-color: #04e617;
+            box-shadow: 0 0 8px rgba(4, 230, 23, 0.3);
+        }
+
+        .btn-remove-custom-box {
+            position: absolute;
+            top: 0.75rem;
+            right: 0.75rem;
+            background: rgba(239, 68, 68, 0.2);
+            color: #f87171;
+            border: 1px solid rgba(239, 68, 68, 0.4);
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            cursor: pointer;
+        }
+
+        .btn-remove-custom-box:hover {
+            background: #ef4444;
+            color: #fff;
+        }
+
+        .print-comment-text {
+            display: none;
+            color: #000000;
+            font-size: 10pt;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            border: 1px solid #cbd5e1;
+            border-left: 4px solid #04e617;
+            padding: 1rem;
+            border-radius: 6px;
+            background: #f8fafc;
+            min-height: 150px;
+            page-break-inside: avoid;
+        }
+
+        .save-indicator {
+            font-size: 0.8rem;
+            color: #04e617;
+            font-weight: 700;
+            text-align: right;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .save-indicator.visible { opacity: 1; }
+
+        /* Auth Gateway Overlay */
+        .auth-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(10, 15, 26, 0.92);
+            backdrop-filter: blur(6px);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+
+        .auth-card {
+            background: #1a202c;
+            border: 1px solid #334155;
+            border-radius: 12px;
+            width: 100%;
+            max-width: 440px;
+            padding: 2rem;
+            box-shadow: 0 12px 32px rgba(0,0,0,0.6);
+        }
+
+        .auth-card h3 {
+            color: #ffbb00;
+            margin-bottom: 0.5rem;
+            text-align: center;
+            font-size: 1.4rem;
+        }
+
+        .auth-card p {
+            color: #94a3b8;
+            font-size: 0.85rem;
+            text-align: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .auth-switch {
+            text-align: center;
+            margin-top: 1.25rem;
+            font-size: 0.85rem;
+            color: #94a3b8;
+        }
+
+        .auth-switch a {
+            color: #04e617;
+            text-decoration: none;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .forgot-link-wrapper {
+            text-align: center;
+            margin-top: 0.75rem;
+        }
+
+        .forgot-link-wrapper a {
+            color: #ffbb00;
+            font-size: 0.82rem;
+            cursor: pointer;
+        }
+
+        .print-header { display: none; }
+        .print-campus-photo { display: none; }
+
+        /* UNIFIED PRINT STYLES MATCHING THE EXACT SCREENSHOT LAYOUT + CAMPUS IMAGE */
+        @media print {
+            body {
+                background-color: #ffffff !important;
+                color: #000000 !important;
+                font-size: 10pt;
+                padding: 0 !important;
+                -webkit-print-color-adjust: exact;
+            }
+
+            /* Custom Top Bar matching Screenshot layout exactly */
+            .print-header {
+                display: flex !important;
+                justify-content: space-between;
+                align-items: flex-end;
+                border-bottom: 2px solid #000;
+                padding-bottom: 8px;
+                margin-bottom: 15px;
+                width: 100%;
+            }
+
+            .print-header-title {
+                font-size: 16pt;
+                font-weight: bold;
+                color: #000;
+                letter-spacing: 0.5px;
+            }
+
+            .print-header-user {
+                font-size: 10pt;
+                font-weight: 600;
+                color: #333;
+            }
+
+            /* Print Campus Photo Styling */
+            .print-campus-photo {
+                display: block !important;
+                width: 100% !important;
+                height: 180px !important;
+                object-fit: cover !important;
+                border-radius: 8px !important;
+                border: 1px solid #cbd5e1 !important;
+                margin-bottom: 15px !important;
+                page-break-inside: avoid;
+            }
+
+            /* HIDE ALL APP CONTROLS, FORMS, BUTTONS & OTHER TABS */
+            .site-header,
+            .nav-tabs,
+            .auth-overlay,
+            #pageDashboard,
+            #pageFacilities,
+            #pageUniversity,
+            .facility-info-card,
+            .ecm-card-panel,
+            .btn-delete,
+            .btn-clear-all,
+            .btn-remove-custom-box,
+            .action-row,
+            .tariff-setting,
+            .save-indicator,
+            .btn-add-load-box,
+            .recs-intro-text,
+            .print-orientation-control,
+            .ai-generate,
+            th:last-child,
+            td:last-child {
+                display: none !important;
+            }
+
+            /* FORCE VISIBILITY OF FACILITY BAR, INVENTORY & GRAPH */
+            #pageAudit, #pageMeasures {
+                display: block !important;
+            }
+
+            .ai-report-panel {
+                background: #ffffff !important;
+                color: #000000 !important;
+            }
+
+            .ai-report-content {
+                color: #000000 !important;
+            }
+
+            .facility-display-bar {
+                display: flex !important;
+                background: #ffffff !important;
+                border: 1px solid #94a3b8 !important;
+                border-radius: 8px !important;
+                padding: 10px 14px !important;
+                margin-bottom: 20px !important;
+                color: #000000 !important;
+                box-shadow: none !important;
+            }
+
+            .facility-display-bar div {
+                color: #000000 !important;
+            }
+
+            .facility-display-bar span {
+                color: #b45309 !important; /* Dark amber/gold matching screenshot */
+                font-weight: bold !important;
+            }
+
+            .card-panel {
+                background: #ffffff !important;
+                border: 1px solid #cbd5e1 !important;
+                border-radius: 10px !important;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.05) !important;
+                padding: 1.25rem !important;
+                margin-bottom: 1.5rem !important;
+            }
+
+            .card-panel h4 {
+                color: #b45309 !important; /* Golden yellow title matching screenshot */
+                border-bottom: 1px solid #cbd5e1 !important;
+                padding-bottom: 0.5rem !important;
+            }
+
+            table {
+                width: 100% !important;
+                color: #000000 !important;
+            }
+
+            th {
+                background-color: #f8fafc !important;
+                color: #000000 !important;
+                border-bottom: 1px solid #cbd5e1 !important;
+            }
+
+            td {
+                color: #000000 !important;
+                border-bottom: 1px solid #e2e8f0 !important;
+            }
+
+            .badge-pill {
+                background: #f1f5f9 !important;
+                color: #000000 !important;
+                border: 1px solid #cbd5e1 !important;
+            }
+
+            .auditor-comments-panel {
+                background: #ffffff !important;
+                border: 2px solid #b45309 !important;
+                box-shadow: none !important;
+                padding: 1.25rem !important;
+                margin-bottom: 1.5rem !important;
+                page-break-before: always;
+            }
+
+            .auditor-comments-grid {
+                grid-template-columns: 1fr !important;
+                gap: 1.5rem !important;
+            }
+
+            .auditor-comment-box {
+                background: #ffffff !important;
+                border: 1px solid #94a3b8 !important;
+                border-left: 4px solid #b45309 !important;
+                padding: 1rem !important;
+                page-break-inside: avoid;
+            }
+
+            .auditor-comment-box label,
+            .auditor-comment-box input.load-type-input {
+                color: #b45309 !important;
+                font-weight: bold !important;
+                border: none !important;
+                background: transparent !important;
+                padding: 0 !important;
+                font-size: 11pt !important;
+            }
+
+            .auditor-comment-box textarea {
+                display: none !important;
+            }
+
+            .print-comment-text {
+                display: block !important;
+                background: #f8fafc !important;
+                color: #000000 !important;
+                border: 1px solid #cbd5e1 !important;
+                border-left: 4px solid #04e617 !important;
+                font-size: 10pt !important;
+                line-height: 1.5 !important;
+            }
+
+            .chart-box-single {
+                height: 280px !important;
+                width: 100% !important;
+                page-break-inside: avoid;
+            }
+        }
+
+        /* RESPONSIVE STYLES */
+        @media (max-width: 1024px) {
+            .card-row { grid-template-columns: repeat(3, 1fr); }
+        }
+
+        @media (max-width: 880px) {
+            .header-container { flex-wrap: wrap; }
+            .brand, .user-pill { flex: 0 0 auto; }
+            .nav-tabs { order: 3; width: 100%; justify-content: center; margin-top: 0.5rem; }
+        }
+
+        @media (max-width: 600px) {
+            .site-header { padding: 0.5rem; }
+            .brand h1 { font-size: 0.85rem; }
+            .header-container { gap: 0.5rem; }
+            .nav-tabs { order: 3; width: 100%; margin-top: 0.25rem; }
+            .nav-btn { flex: 0 0 auto; text-align: center; padding: 0.45rem 0.65rem; font-size: 0.75rem; }
+            .user-pill { max-width: 48%; }
+            .userNameDisplaySpan { max-width: 90px; }
+            .container { padding: 0.75rem 0.5rem 1.5rem; }
+            .card-panel { padding: 0.85rem; margin-bottom: 0.9rem; }
+            .card-row { gap: 0.55rem; }
+            .box { padding: 0.7rem; }
+            .box-value { font-size: 0.95rem; }
+            .card-row, .strategy-grid, .auditor-comments-grid, .form-grid, .facility-picker, .university-kpis { grid-template-columns: 1fr; }
+            .history-entry, .submission-equipment { grid-template-columns: 1fr 1fr; }
+            .submission-equipment { grid-template-columns: 1fr 1fr; }
+            .btn-calc { grid-column: span 1; }
+            .campus-img { height: 180px; }
+            .hero-overlay { flex-direction: column; align-items: flex-start; }
+            .chart-box-single { height: 280px; }
+            .tariff-setting { flex-direction: column; align-items: stretch; }
+            .tariff-setting div { display: flex; justify-content: space-between; align-items: center; }
+            .facility-display-bar { flex-direction: column; gap: 0.4rem; }
+            .action-row > button { flex: 1 1 auto; }
+            .print-orientation-control { width: 100%; justify-content: space-between; }
+            .chart-box-single { height: 250px; }
+            .submission-card { padding: 0.75rem; overflow-wrap: anywhere; }
+            .audit-photo-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Print Only Header -->
+    <div class="print-header">
+        <div class="print-header-title">EnerTrack Energy Audit</div>
+        <div class="print-header-user">Auditor: <span id="printHeaderUserName">Auditor</span></div>
+    </div>
+
+    <!-- Moi University Campus Photo -->
+    <img src="Moi-University(1).jpg" alt="Moi University Main Campus" class="print-campus-photo" onerror="this.src='https://placehold.co/1000x260/1a202c/e2e8f0?text=Moi+University+Main+Campus'">
+
+    <!-- Auth Gateway Overlay -->
+    <div id="authOverlay" class="auth-overlay">
+        <div class="auth-card">
+            <div style="text-align: center; margin-bottom: 1rem;">
+                <div class="logo-3d-container" style="margin: 0 auto; width: 50px; height: 50px;">⚡</div>
+            </div>
+            
+            <!-- REGISTER FORM -->
+            <div id="registerFormView" style="display: none;">
+                <h3>Create Audit Account</h3>
+                <p>Register your credentials to access EnerTrack</p>
+                <form onsubmit="event.preventDefault(); handleRegister();">
+                    <div class="form-group" style="margin-bottom: 0.8rem;">
+                        <label>Full Name</label>
+                        <input type="text" id="regName" placeholder="Enter Full name" required>
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0.8rem;">
+                        <label>Reg Number / ID</label>
+                        <input type="text" id="regRegNo" placeholder="Enter Reg No./ID" required>
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0.8rem;">
+                        <label>Email Address</label>
+                        <input type="email" id="regEmail" placeholder="Enter email" required>
+                    </div>
+                    <div class="form-group" style="margin-bottom: 1.25rem;">
+                        <label>Password</label>
+                        <input type="password" id="regPass" placeholder="At least 12 characters" minlength="12" required>
+                    </div>
+                    <button type="submit" class="btn-calc" style="width: 100%;">Create Account</button>
+                </form>
+                <div class="auth-switch">
+                    Already have an account? <a onclick="toggleAuthView('login')">Log In</a>
+                </div>
+            </div>
+
+            <!-- LOGIN FORM -->
+            <div id="loginFormView">
+                <h3>Account Login</h3>
+                <p>Enter your account details to access EnerTrack</p>
+                <form onsubmit="event.preventDefault(); handleLogin();">
+                    <div class="form-group" style="margin-bottom: 0.8rem;">
+                        <label>Email or registration number</label>
+                        <input type="text" id="loginEmail" placeholder="Enter email or registration number" autocomplete="username" required>
+                    </div>
+                    <div class="form-group" style="margin-bottom: 1.25rem;">
+                        <label>Password</label>
+                        <input type="password" id="loginPass" placeholder="Enter your password" autocomplete="current-password" required>
+                    </div>
+                    <button type="submit" class="btn-calc" style="width: 100%;">Log In</button>
+                </form>
+                <div class="auth-switch">
+                    Need an account? <a onclick="toggleAuthView('register')">Create Account</a>
+                </div>
+                <div class="forgot-link-wrapper">
+                    <a onclick="toggleAuthView('forgot')">Forgot Password?</a>
+                </div>
+            </div>
+
+            <!-- FORGOT PASSWORD FORM -->
+            <div id="forgotFormView" style="display: none;">
+                <h3>Reset Password</h3>
+                <p id="resetPasswordInstructions">Enter your registered email and we’ll send you a password reset link.</p>
+                <form onsubmit="event.preventDefault(); handleResetPassword();">
+                    <div class="form-group" style="margin-bottom: 0.8rem;">
+                        <label>Email Address</label>
+                        <input type="email" id="forgotEmail" placeholder="Enter registered email" autocomplete="email" required>
+                    </div>
+                    <div class="form-group" id="resetPasswordGroup" style="display: none; margin-bottom: 1.25rem;">
+                        <label>New Password (only when using a reset link)</label>
+                        <input type="password" id="forgotNewPass" placeholder="At least 12 characters" autocomplete="new-password">
+                    </div>
+                    <button type="submit" id="resetPasswordSubmit" class="btn-calc" style="width: 100%;">Send reset link</button>
+                </form>
+                <div class="auth-switch">
+                    Back to <a onclick="toggleAuthView('login')">Log In</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Navigation Header -->
+    <header class="site-header">
+        <div class="header-container">
+            <div class="brand">
+                <div class="logo-3d-container" id="header3DLogo"></div>
+                <h1>Ener<span>Track</span></h1>
+            </div>
+
+            <nav class="nav-tabs" id="mainNav">
+                <button class="nav-btn active" id="tabDashboard" onclick="switchPage('dashboard')">🏠 Dashboard</button>
+                <button class="nav-btn" id="tabFacilities" onclick="switchPage('facilities')">🏢 Facilities</button>
+                <button class="nav-btn" id="tabUniversity" onclick="switchPage('university')">🏫 University Energy</button>
+                <button class="nav-btn" id="tabAudit" onclick="switchPage('audit')">📊 Audit Report</button>
+                <button class="nav-btn" id="tabMeasures" onclick="switchPage('measures')">💡 Conservation</button>
+                <button class="nav-btn" id="tabProfiles" onclick="switchPage('profiles')">👥 Profiles & Reviews</button>
+            </nav>
+
+            <div class="user-pill" id="userPill">
+                👤 <span id="userNameDisplay" class="userNameDisplaySpan">Auditor</span>
+                <button class="btn-logout" onclick="handleLogout()">Logout</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <div class="container">
+        
+        <!-- DASHBOARD TAB -->
+        <div id="pageDashboard" class="page-view active">
+            <section class="hero-banner">
+                <img src="Moi-University(1).jpg" alt="Moi University Main Campus" class="campus-img" onerror="this.src='https://placehold.co/1000x260/1a202c/e2e8f0?text=Moi+University+Main+Campus'">
+                <div class="hero-overlay">
+                    <div class="hero-title">Moi University Energy Tracking</div>
+                    <div class="hero-badge">EnerTrack</div>
+                </div>
+            </section>
+            <section class="card-panel">
+                <h4>🏫 University-wide energy at a glance</h4>
+                <div class="card-row university-kpis" style="margin-bottom: 1rem;">
+                    <div class="box active-power-box"><h4>Monthly Consumption</h4><div class="box-value" id="dashboardUniversityKwh">0.00 kWh</div></div>
+                    <div class="box"><h4>Monthly Cost</h4><div class="box-value" id="dashboardUniversityCost">KES 0.00</div></div>
+                    <div class="box carbon-box"><h4>Facilities Audited</h4><div class="box-value" id="dashboardFacilityCount">0</div></div>
+                </div>
+                <p class="facility-hint">Submit facility audits for administrator review. Only approved audit estimates are included in university totals.</p>
+                <div class="action-row" style="margin-top: 1rem;">
+                    <button class="btn-action" onclick="switchPage('facilities')">Open Facilities & Equipment</button>
+                    <button class="btn-action" onclick="switchPage('university')">View University Breakdown</button>
+                </div>
+            </section>
+            <section class="card-panel">
+                <h4>📋 Your audit dashboard</h4>
+                <div class="card-row university-kpis" style="margin-bottom: 1rem;">
+                    <div class="box"><h4>Total audits</h4><div class="box-value" id="dashboardAuditCount">0</div></div>
+                    <div class="box active-power-box"><h4>Recorded consumption</h4><div class="box-value" id="dashboardRecordedKwh">0.00 kWh</div></div>
+                    <div class="box"><h4>Recorded expenditure</h4><div class="box-value" id="dashboardRecordedCost">KES 0.00</div></div>
+                </div>
+                <p class="facility-hint">Consumption and expenditure totals sum the utility-bill readings recorded on your audits.</p>
+                <h4 style="margin-top: 1rem;">Recent audits</h4>
+                <div class="table-responsive">
+                    <table>
+                        <thead><tr><th>Facility</th><th>Status</th><th>Equipment items</th><th>Recorded consumption</th><th>Updated</th></tr></thead>
+                        <tbody id="dashboardRecentAudits"><tr><td colspan="5" class="empty-state">No saved audits yet.</td></tr></tbody>
+                    </table>
+                </div>
+                <h4 style="margin-top: 1rem;">Available audit reports</h4>
+                <div class="table-responsive">
+                    <table>
+                        <thead><tr><th>Facility</th><th>Report status</th><th>Download</th></tr></thead>
+                        <tbody id="dashboardReports"><tr><td colspan="3" class="empty-state">No audit reports available yet.</td></tr></tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+
+        <!-- FACILITIES AND EQUIPMENT TAB -->
+        <div id="pageFacilities" class="page-view">
+            <section class="card-panel facility-info-card">
+                <h4>🏢 Facilities & Audit Details</h4>
+                <div class="facility-picker">
+                    <div class="form-group">
+                        <label for="facilitySelector">Facility</label>
+                        <select id="facilitySelector" onchange="handleFacilitySelection()"></select>
+                    </div>
+                    <div class="form-group" id="hostelNameGroup" style="display: none;">
+                        <label for="hostelName">Hostel name / identifier</label>
+                        <input type="text" id="hostelName" placeholder="Enter the hostel being audited" onchange="selectHostelAudit()">
+                        <span class="facility-hint">Each hostel is saved as a separate audit.</span>
+                    </div>
+                    <div class="form-group">
+                        <label for="facilityLocation">Location</label>
+                        <input type="text" id="facilityLocation" placeholder="e.g. Main Campus" onchange="saveFacilityDetails()">
+                    </div>
+                    <div class="form-group">
+                        <label for="authorName">Auditor name (from your profile)</label>
+                        <input type="text" id="authorName" placeholder="Your profile name" readonly aria-readonly="true">
+                    </div>
+                    <div class="form-group"><label for="operatingHoursInfo">Facility operating hours per day</label><input type="number" id="operatingHoursInfo" min="0" max="24" step="0.5" placeholder="e.g. 12" onchange="saveFacilityDetails()"></div>
+                    <div class="form-group"><label for="occupants">Number of occupants / users</label><input type="number" id="occupants" min="0" step="1" placeholder="e.g. 120" onchange="saveFacilityDetails()"></div>
+                    <div class="form-group"><label for="energySources">Energy sources</label><input type="text" id="energySources" placeholder="e.g. Grid electricity, solar, generator" onchange="saveFacilityDetails()"></div>
+                    <div class="form-group"><label for="auditDate">Date of audit</label><input type="date" id="auditDate" onchange="saveFacilityDetails()"></div>
+                    <div class="form-group">
+                        <label for="savingsTarget">Estimated savings target (%)</label>
+                        <input type="number" id="savingsTarget" min="0" max="100" step="1" value="15" onchange="saveFacilityDetails()">
+                        <span class="facility-hint">Planning estimate; validate recommendations against measured performance.</span>
+                    </div>
+                    <div class="form-group"><label for="auditPurpose">Audit purpose</label><textarea id="auditPurpose" rows="2" placeholder="Why is this audit being conducted?" onchange="saveFacilityDetails()"></textarea></div>
+                    <div class="form-group"><label for="facilityBackground">Facility background</label><textarea id="facilityBackground" rows="2" placeholder="Brief facility and operations background" onchange="saveFacilityDetails()"></textarea></div>
+                    <div class="form-group"><label for="auditScope">Audit scope and systems covered</label><textarea id="auditScope" rows="2" placeholder="Areas, equipment, and systems covered" onchange="saveFacilityDetails()"></textarea></div>
+                </div>
+                <div class="action-row" style="margin-top: 1rem;">
+                    <button class="btn-clear-all" id="deleteAuditButton" type="button" onclick="deleteCurrentAudit()" hidden>Delete this audit</button>
+                </div>
+            </section>
+
+            <div class="card-row university-kpis">
+                <div class="box"><h4>Monthly Energy Consumption</h4><div class="box-value" id="kpiKwh">0.00 kWh</div></div>
+                <div class="box"><h4>Total Monthly Cost</h4><div class="box-value" id="kpiCost">KES 0.00</div></div>
+                <div class="box active-power-box"><h4>Estimated Connected Load</h4><div class="box-value" id="kpiActivePower">0.00 kW</div></div>
+                <div class="box carbon-box"><h4>Carbon Emissions</h4><div class="box-value" id="kpiCarbon">0.00 kg CO₂e</div></div>
+            </div>
+
+            <section class="card-panel load-analysis-section">
+                <h4>⚡ Equipment</h4>
+                <p class="facility-hint">Equipment is saved to the selected facility. Choose a facility above to view or enter its inventory.</p>
+                <form id="auditForm" onsubmit="event.preventDefault(); addEquipment();">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="equipmentCategory">Equipment Category</label>
+                            <select id="equipmentCategory" required onchange="handleCategoryChange()">
+                                <option value="Lighting">Lighting</option>
+                                <option value="HVAC">HVAC (Air conditioners, Refrigerators etc)</option>
+                                <option value="Motors">Motors and Pumps</option>
+                                <option value="Electronics">Electronics & IT Systems</option>
+                            </select>
+                        </div>
+                        <div class="form-group"><label for="equipment">Equipment Name</label><input type="text" id="equipment" required></div>
+                        <div class="form-group"><label for="wattage">Active Power Rating (Watts)</label><input type="number" id="wattage" min="0.1" step="any" required></div>
+                        <div class="form-group"><label for="availableNumber">Available Quantity</label><input type="number" id="availableNumber" min="1" required></div>
+                        <div class="form-group"><label for="operatingHours">Operating Hours Per Day (Hrs)</label><input type="number" id="operatingHours" min="0.1" max="24" step="any" required></div>
+                        <button type="submit" class="btn-calc">Calculate and Add Equipment</button>
+                    </div>
+                </form>
+            </section>
+            <div class="tariff-setting">
+                <div><label for="tariffRate">⚡ Utility Tariff Rate (KES / kWh):</label>                <input type="number" id="tariffRate" value="12.00" min="1" step="0.5" onchange="handleAuditSettingChange()"></div>
+                <div><label for="emissionFactor">🌱 Grid Emission Factor (kg CO₂e / kWh):</label>                <input type="number" id="emissionFactor" value="0.05" min="0" step="0.001" onchange="handleAuditSettingChange()" style="width: 120px;"></div>
+            </div>
+            <section class="card-panel">
+                <h4>📈 Historical energy use and bills</h4>
+                <p class="facility-hint">Add monthly utility-bill data when available to compare historical usage with the equipment estimate.</p>
+                <div class="history-entry">
+                    <div class="form-group"><label for="historyMonth">Billing month</label><input type="month" id="historyMonth"></div>
+                    <div class="form-group"><label for="historyKwh">Consumption (kWh)</label><input type="number" id="historyKwh" min="0" step="any"></div>
+                    <div class="form-group"><label for="historyCost">Bill amount (KES)</label><input type="number" id="historyCost" min="0" step="any"></div>
+                    <button class="btn-action" type="button" onclick="addHistoricalEntry()">Add month</button>
+                </div>
+                <div class="table-responsive">
+                    <table>
+                        <thead><tr><th>Month</th><th>Consumption (kWh)</th><th>Bill (KES)</th><th>Action</th></tr></thead>
+                        <tbody id="historyBody"><tr><td colspan="4" class="empty-state">No historical bill data entered.</td></tr></tbody>
+                    </table>
+                </div>
+            </section>
+            <section class="card-panel">
+                <h4>📝 Energy audit findings and recommendations</h4>
+                <p class="facility-hint">Record observations and practical actions for this facility. Enter one recommendation per line.</p>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="auditFindings">Audit findings</label>
+                        <textarea id="auditFindings" rows="5" maxlength="10000" placeholder="Document site observations, identified issues, and opportunities." onchange="saveAuditAnalysis()"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="auditRecommendations">Energy-saving recommendations</label>
+                        <textarea id="auditRecommendations" rows="5" maxlength="10000" placeholder="Enter one actionable recommendation per line." onchange="saveAuditAnalysis()"></textarea>
+                    </div>
+                </div>
+            </section>
+            <section class="card-panel">
+                <h4>📷 Auditor site photos</h4>
+                <p class="facility-hint">Add equipment, meter, or facility photos as supporting evidence. Images are resized and stored with this audit.</p>
+                <div class="form-group">
+                    <label for="auditPhotos">Choose photos</label>
+                    <input type="file" id="auditPhotos" accept="image/*" multiple onchange="handleAuditPhotos(this.files)">
+                </div>
+                <p id="photoStorageNotice" class="facility-hint">Photos are compressed before saving. Keep the original images for archival quality.</p>
+                <div id="auditPhotoGallery" class="audit-photo-grid"></div>
+            </section>
+            <section class="card-panel">
+                <h4>📨 Auditor submission</h4>
+                <p id="submissionStatus" class="facility-hint">Submit this facility audit for administrator review and approval.</p>
+                <button class="btn-action" onclick="submitCurrentAudit()">Submit facility audit for approval</button>
+            </section>
+        </div>
+
+        <!-- UNIVERSITY-WIDE ENERGY TAB -->
+        <div id="pageUniversity" class="page-view">
+            <section class="card-panel">
+                <h4>🏫 Whole-university energy consumption</h4>
+                <div class="card-row">
+                    <div class="box active-power-box"><h4>Monthly Consumption</h4><div class="box-value" id="universityKwh">0.00 kWh</div></div>
+                    <div class="box"><h4>Estimated Monthly Cost</h4><div class="box-value" id="universityCost">KES 0.00</div></div>
+                    <div class="box carbon-box"><h4>Monthly Emissions</h4><div class="box-value" id="universityCarbon">0.00 kg CO₂e</div></div>
+                </div>
+                <h4 style="margin-top: 1rem;">Consumption by Facility</h4>
+                <div class="table-responsive">
+                    <table>
+                        <thead><tr><th>Facility</th><th>Equipment Items</th><th>Monthly Energy (kWh)</th><th>Monthly Cost (KES)</th></tr></thead>
+                        <tbody id="universityFacilityBody"><tr><td colspan="4" class="empty-state">No facility audit data yet.</td></tr></tbody>
+                    </table>
+                </div>
+            </section>
+            <section class="card-panel">
+                <h4>📊 Monthly Consumption by Facility</h4>
+                <div class="chart-box-single"><canvas id="universityChart"></canvas></div>
+            </section>
+        </div>
+
+        <!-- AUDIT REPORT TAB -->
+        <div id="pageAudit" class="page-view">
+            <!-- FACILITY DETAILS BAR (included in print layout) -->
+            <div class="facility-display-bar">
+                <div>Building: <span id="lblBuilding">Not Specified</span></div>
+                <div>Location: <span id="lblLocation">Not Specified</span></div>
+                <div>Auditor: <span id="lblAuthor">Not Specified</span></div>
+            </div>
+
+            <section class="card-panel ai-report-panel">
+                <div style="display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap;">
+                    <h4 style="margin: 0; border: none; padding: 0;">🤖 AI Agent Audit Report</h4>
+                    <button class="btn-action ai-generate" onclick="generateAuditReport()">Generate Report from This Audit</button>
+                </div>
+                <p class="facility-hint" style="margin: 0.8rem 0;">The report assistant analyzes this facility's equipment and calculated energy use. Generate and download a PDF after saving the report.</p>
+                <div id="aiReportContent" class="ai-report-content">Select a facility and add equipment, then generate an audit report.</div>
+                <div id="reportPhotoGallery" class="audit-photo-grid"></div>
+            </section>
+
+            <!-- EQUIPMENT AUDIT INVENTORY LIST -->
+            <section class="card-panel">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.75rem;">
+                    <h4 style="margin: 0; border: none; padding: 0;">📋 Equipment Audit Inventory List</h4>
+                    <div class="action-row">
+                        <div class="print-orientation-control">
+                            <label for="printOrientation">📄 Print Page Setup:</label>
+                            <select id="printOrientation" onchange="updatePrintOrientation(this.value)">
+                                <option value="portrait" selected>Portrait</option>
+                                <option value="landscape">Landscape</option>
+                            </select>
+                        </div>
+                        <button class="btn-action" onclick="handlePrintReport()">🖨️ Print Report</button>
+                        <button class="btn-clear-all" onclick="clearAll()">Clear All</button>
+                    </div>
+                </div>
+
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Category</th>
+                                <th>Equipment Name</th>
+                                <th>Watts</th>
+                                <th>Qty</th>
+                                <th>Hours/Day</th>
+                                <th>Daily (kWh)</th>
+                                <th>Monthly (kWh)</th>
+                                <th>Cost (KES)</th>
+                                <th>CO₂ (kg)</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="inventoryBody">
+                            <tr>
+                                <td colspan="10" class="empty-state">No equipment added yet. Add equipment from the Facilities tab.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- MONTHLY ENERGY COST BREAKDOWN GRAPH -->
+            <section class="card-panel">
+                <h4 style="margin-bottom: 1.25rem;">📊 Monthly Energy Cost Graph</h4>
+                <div class="chart-box-single">
+                    <canvas id="barChart"></canvas>
+                </div>
+            </section>
+        </div>
+
+        <!-- RECOMMENDATIONS & CONSERVATION MEASURES TAB -->
+        <div id="pageMeasures" class="page-view">
+            
+            <!-- PRINT ITEM 3: AUDITOR RECOMMENDATIONS PANEL -->
+            <section class="auditor-comments-panel">
+                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #04e617; padding-bottom: 0.5rem; margin-bottom: 0.5rem;">
+                    <h4 style="border: none; padding: 0; margin: 0; color: #ffbb00; font-size: 1.15rem;">📝 Auditor Recommendations per Specified Load Type</h4>
+                    <div id="saveIndicator" class="save-indicator">✓ Auto-saved</div>
+                </div>
+                <p class="recs-intro-text" style="color: #cbd5e1; font-size: 0.88rem; margin-bottom: 1.25rem;">
+                    Define custom load categories below and enter dedicated technical recommendations.
+                </p>
+
+                <!-- DYNAMIC AUDITOR LOAD RECOMMENDATIONS CONTAINER -->
+                <div id="auditorCommentsContainer" class="auditor-comments-grid">
+                    <!-- Load Recommendation Boxes here -->
+                </div>
+            </section>
+
+            <section class="card-panel ecm-card-panel">
+                <h4 style="margin-bottom: 0.5rem;">💡 Energy Conservation Measures (ECMs)</h4>
+                <p style="color: #94a3b8; font-size: 0.88rem; margin-bottom: 1.5rem;">Structured standard operating procedures for reducing energy usage, carbon footprint, and operational cost.</p>
+
+                <div class="strategy-grid">
+                    <div class="strategy-card">
+                        <h5>💡 1. Lighting System Retrofits</h5>
+                        <ul>
+                            <li><strong>LED Conversion:</strong> Replace fluorescent tube fittings with high-efficiency LED lights (50% energy reduction).</li>
+                            <li><strong>Daylight Harvesting:</strong> Utilize natural lighting in high-window corridors and library spaces.</li>
+                        </ul>
+                    </div>
+
+                    <div class="strategy-card">
+                        <h5>❄️ 2. HVAC & Thermal Management</h5>
+                        <ul>
+                            <li><strong>Variable Speed Drives (VFDs):</strong> Retrofit large extractor fans and air handling units in science laboratories.</li>
+                            <li><strong>Natural Ventilation:</strong> Optimize window operation in hostels and staff offices.</li>
+                        </ul>
+                    </div>
+
+                    <div class="strategy-card">
+                        <h5>⚙️ 3. Motors, Pumps & Controls</h5>
+                        <ul>
+                            <li><strong>Motor and Pump Maintenance:</strong> Check alignment, bearings, filters, leaks, and operating schedules.</li>
+                            <li><strong>Smart Power Strips:</strong> Cut phantom/vampire loads from electronics and laboratory equipment overnight.</li>
+                        </ul>
+                    </div>
+
+                    <div class="strategy-card">
+                        <h5>☀️ 4. Renewable Energy Integration</h5>
+                        <ul>
+                            <li><strong>Solar PV Roof Microgrids:</strong> Install solar roof panels on academic complexes for day-time baseload generation.</li>
+                            <li><strong>Solar Thermal Water Heating:</strong> Replace electric immersion heaters in student hostels with solar water heaters.</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <!-- USER PROFILES AND ADMIN REVIEW -->
+        <div id="pageProfiles" class="page-view">
+            <section class="card-panel">
+                <h4>👤 Profile</h4>
+                <div class="action-row">
+                    <span id="profileName">Auditor</span>
+                    <span id="profileRole" class="profile-role role-auditor">Auditor</span>
+                    <span id="profileEmail" class="facility-hint"></span>
+                </div>
+                <p id="adminSetupHint" class="facility-hint" style="margin-top: 1rem;"></p>
+                <button id="claimAdminButton" class="btn-action" style="display: none; margin-top: 0.75rem;" onclick="claimAdministratorAccess()">Set up the first administrator</button>
+                <p class="facility-hint" style="margin-top: 0.75rem;">Accounts and submissions are stored in the EnerTrack database. Use your account to access your audits on supported devices.</p>
+            </section>
+            <section class="card-panel">
+                <h4>📨 My facility submissions</h4>
+                <div id="mySubmissionList" class="submission-list"></div>
+            </section>
+            <section id="adminAccountsPanel" class="card-panel" style="display: none;">
+                <h4>🛡️ Administrator: Auditor accounts</h4>
+                <p class="facility-hint">Promote trusted accounts to administrator or return them to auditor access.</p>
+                <div id="accountList" class="submission-list"></div>
+            </section>
+            <section id="adminReviewPanel" class="card-panel" style="display: none;">
+                <h4>📝 Administrator: Audit approval queue</h4>
+                <p class="facility-hint">Edit submitted facility and equipment details, approve the final data, or discard a submission. Edited submissions return to pending until approved.</p>
+                <div id="adminReviewQueue"></div>
+            </section>
+        </div>
+
+    </div>
+
+    <script>
+        let inventory = [];
+        let audits = [];
+        let currentUser = null;
+        let sharedSubmissions = [];
+        let barChartInstance = null;
+        let universityChartInstance = null;
+        let selectedFacility = 'Admin';
+        let selectedHostelName = '';
+        let facilityInfo = { facilityLocation: '', authorName: '' };
+        let historicalData = [];
+        let auditPhotos = [];
+        const facilityNames = [
+            'Admin',
+            'Tech Building',
+            'Hostels',
+            'MTL',
+            'Main water supply',
+            'Soweto Kitchen',
+            'Ngeria Hostels',
+            'Soweto 2',
+            'Annex'
+        ];
+        let loadRecommendations = [
+            { id: 'lighting', loadType: 'Lighting Loads', text: '' },
+            { id: 'hvac', loadType: 'HVAC & Cooling Loads', text: '' },
+            { id: 'motors', loadType: 'Motors & Pumps', text: '' },
+            { id: 'electronics', loadType: 'Electronics & Laboratory Equipment', text: '' }
+        ];
+        let saveTimeout = null;
+
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                const swCode = `
+                    self.addEventListener('install', e => { self.skipWaiting(); });
+                    self.addEventListener('activate', e => { self.clients.claim(); });
+                    self.addEventListener('fetch', e => { e.respondWith(fetch(e.request).catch(() => caches.match(e.request))); });
+                `;
+                const blob = new Blob([swCode], { type: 'text/javascript' });
+                const swUrl = URL.createObjectURL(blob);
+                navigator.serviceWorker.register(swUrl).catch(err => console.log('SW registration notice: ', err));
+            });
+        }
+
+        function updatePrintOrientation(orientation) {
+            const styleTag = document.getElementById('dynamicPrintStyle');
+            if (styleTag) {
+                styleTag.innerHTML = `@page { margin: 1.2cm; size: A4 ${orientation}; }`;
+            }
+        }
+
+        function handleCategoryChange() {
+            return document.getElementById('equipmentCategory').value;
+        }
+
+        function currentAuditKey(facility = selectedFacility, hostelName = selectedHostelName) {
+            if (facility === 'Hostels') {
+                return hostelName.trim() ? `Hostels:${hostelName.trim().toLocaleLowerCase()}` : '';
+            }
+            return facility;
+        }
+
+        function currentAuditLabel(record) {
+            return record.facilityId === 'Hostels' && record.hostelName
+                ? `Hostels - ${record.hostelName}`
+                : record.facilityId;
+        }
+
+        function createEmptyFacilityInfo() {
+            return {
+                facilityLocation: '',
+                authorName: '',
+                operatingHours: '',
+                occupants: '',
+                energySources: '',
+                auditDate: new Date().toISOString().slice(0, 10),
+                savingsTarget: 15,
+                auditPurpose: '',
+                background: '',
+                scope: ''
+            };
+        }
+
+        function getCurrentAudit(create = true) {
+            const key = currentAuditKey();
+            if (!key) return null;
+            let record = audits.find(audit => audit.key === key);
+            if (!record && create) {
+                record = {
+                    key,
+                    facilityId: selectedFacility,
+                    hostelName: selectedFacility === 'Hostels' ? selectedHostelName.trim() : '',
+                    facilityInfo: createEmptyFacilityInfo(),
+                    inventory: [],
+                    historicalData: [],
+                    photos: [],
+                    report: '',
+                    reportGeneratedAt: ''
+                };
+                audits.push(record);
+            }
+            return record || null;
+        }
+
+        function initializeFacilitySelector() {
+            const selector = document.getElementById('facilitySelector');
+            selector.innerHTML = '';
+            facilityNames.forEach(name => {
+                const option = document.createElement('option');
+                option.value = name;
+                option.textContent = name;
+                selector.appendChild(option);
+            });
+            selector.value = selectedFacility;
+            document.getElementById('hostelNameGroup').style.display = selectedFacility === 'Hostels' ? 'flex' : 'none';
+            document.getElementById('hostelName').value = selectedHostelName;
+        }
+
+        function handleFacilitySelection() {
+            selectedFacility = document.getElementById('facilitySelector').value;
+            selectedHostelName = '';
+            document.getElementById('hostelName').value = '';
+            document.getElementById('hostelNameGroup').style.display = selectedFacility === 'Hostels' ? 'flex' : 'none';
+            if (selectedFacility !== 'Hostels') {
+                getCurrentAudit();
+                loadActiveAudit();
+            } else {
+                loadActiveAudit();
+            }
+        }
+
+        function selectHostelAudit() {
+            selectedHostelName = document.getElementById('hostelName').value.trim();
+            if (!selectedHostelName) {
+                loadActiveAudit();
+                return;
+            }
+            getCurrentAudit();
+            loadActiveAudit();
+        }
+
+        function saveFacilityDetails() {
+            const savingsTargetText = document.getElementById('savingsTarget').value;
+            const savingsTarget = savingsTargetText === '' ? 15 : Number(savingsTargetText);
+            if (!Number.isFinite(savingsTarget) || savingsTarget < 0 || savingsTarget > 100) {
+                alert('Estimated savings target must be between 0 and 100 percent.');
+                document.getElementById('savingsTarget').value = facilityInfo.savingsTarget ?? 15;
+                return;
+            }
+            facilityInfo.facilityLocation = document.getElementById('facilityLocation').value.trim();
+            facilityInfo.authorName = currentUser ? currentUser.name : '';
+            facilityInfo.operatingHours = document.getElementById('operatingHoursInfo').value;
+            facilityInfo.occupants = document.getElementById('occupants').value;
+            facilityInfo.energySources = document.getElementById('energySources').value.trim();
+            facilityInfo.auditDate = document.getElementById('auditDate').value;
+            facilityInfo.savingsTarget = savingsTarget;
+            facilityInfo.auditPurpose = document.getElementById('auditPurpose').value.trim();
+            facilityInfo.background = document.getElementById('facilityBackground').value.trim();
+            facilityInfo.scope = document.getElementById('auditScope').value.trim();
+
+            if (currentUser) {
+                const record = getCurrentAudit();
+                if (record) {
+                    record.facilityInfo = { ...facilityInfo };
+                    record.historicalData = historicalData;
+                    record.photos = auditPhotos;
+                    record.report = '';
+                    record.reportGeneratedAt = '';
+                    saveAudits();
+                }
+            }
+            updateFacilityLabels();
+            updateAuditReportDisplay();
+            updateSubmissionStatus();
+        }
+
+        function saveAuditAnalysis() {
+            const record = getCurrentAudit();
+            if (!record) return;
+            record.findings = document.getElementById('auditFindings').value.trim();
+            record.recommendations = document.getElementById('auditRecommendations').value
+                .split(/\r?\n/)
+                .map(item => item.trim())
+                .filter(Boolean);
+            record.report = '';
+            record.reportGeneratedAt = '';
+            saveAudits();
+            updateAuditReportDisplay();
+            updateSubmissionStatus();
+        }
+
+        function loadActiveAudit() {
+            const record = getCurrentAudit();
+            inventory = record ? record.inventory : [];
+            facilityInfo = record ? { ...createEmptyFacilityInfo(), ...record.facilityInfo } : createEmptyFacilityInfo();
+            historicalData = record && Array.isArray(record.historicalData) ? record.historicalData : [];
+            auditPhotos = record && Array.isArray(record.photos) ? record.photos : [];
+            document.getElementById('auditFindings').value = record ? record.findings || '' : '';
+            document.getElementById('auditRecommendations').value = record && Array.isArray(record.recommendations)
+                ? record.recommendations.join('\n')
+                : '';
+            document.getElementById('facilityLocation').value = facilityInfo.facilityLocation || '';
+            facilityInfo.authorName = currentUser ? currentUser.name : '';
+            document.getElementById('authorName').value = facilityInfo.authorName;
+            document.getElementById('operatingHoursInfo').value = facilityInfo.operatingHours || '';
+            document.getElementById('occupants').value = facilityInfo.occupants || '';
+            document.getElementById('energySources').value = facilityInfo.energySources || '';
+            document.getElementById('auditDate').value = facilityInfo.auditDate || new Date().toISOString().slice(0, 10);
+            document.getElementById('savingsTarget').value = facilityInfo.savingsTarget ?? 15;
+            document.getElementById('auditPurpose').value = facilityInfo.auditPurpose || '';
+            document.getElementById('facilityBackground').value = facilityInfo.background || '';
+            document.getElementById('auditScope').value = facilityInfo.scope || '';
+            renderHistoricalData(historicalData);
+            renderAuditPhotos(auditPhotos);
+            updateFacilityLabels();
+            calculateAll();
+            updateAuditReportDisplay();
+        }
+
+        function updateFacilityLabels() {
+            const bName = selectedFacility === 'Hostels' && selectedHostelName
+                ? `Hostels - ${selectedHostelName}`
+                : selectedFacility;
+            const fLoc = facilityInfo.facilityLocation || 'Not Specified';
+            const aName = currentUser ? currentUser.name : 'Not Specified';
+
+            document.getElementById('lblBuilding').textContent = bName;
+            document.getElementById('lblLocation').textContent = fLoc;
+            document.getElementById('lblAuthor').textContent = aName;
+
+            document.getElementById('printHeaderUserName').textContent = aName;
+        }
+
+        function saveAudits() {
+            if (!currentUser) return;
+            try {
+                localStorage.setItem(`g12_audits_${currentUser.email}`, JSON.stringify(audits));
+            } catch (error) {
+                console.error('Unable to save facility audits.', error);
+                alert('Audit data could not be saved. Browser storage may be full; remove some photos or free browser storage and try again.');
+                throw error;
+            }
+        }
+
+        function persistCurrentAuditEvidence() {
+            const record = getCurrentAudit();
+            if (!record) return;
+            record.facilityInfo = { ...facilityInfo };
+            record.historicalData = historicalData;
+            record.photos = auditPhotos;
+            record.report = '';
+            record.reportGeneratedAt = '';
+            saveAudits();
+            updateAuditReportDisplay();
+            updateSubmissionStatus();
+        }
+
+        function renderHistoricalData(entries) {
+            const body = document.getElementById('historyBody');
+            if (!body) return;
+            body.innerHTML = '';
+            if (!entries.length) {
+                const row = document.createElement('tr');
+                const cell = document.createElement('td');
+                cell.colSpan = 4;
+                cell.className = 'empty-state';
+                cell.textContent = 'No historical bill data entered.';
+                row.appendChild(cell);
+                body.appendChild(row);
+                return;
+            }
+            entries.slice().sort((a, b) => a.month.localeCompare(b.month)).forEach((entry, index) => {
+                const row = document.createElement('tr');
+                [entry.month, Number(entry.kwh).toLocaleString('en-US'), `KES ${Number(entry.cost).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`].forEach(value => {
+                    const cell = document.createElement('td');
+                    cell.textContent = value;
+                    row.appendChild(cell);
+                });
+                const action = document.createElement('td');
+                const remove = document.createElement('button');
+                remove.type = 'button';
+                remove.className = 'btn-delete';
+                remove.textContent = 'Remove';
+                remove.addEventListener('click', () => {
+                    historicalData.splice(index, 1);
+                    renderHistoricalData(historicalData);
+                    persistCurrentAuditEvidence();
+                });
+                action.appendChild(remove);
+                row.appendChild(action);
+                body.appendChild(row);
+            });
+        }
+
+        function addHistoricalEntry() {
+            const month = document.getElementById('historyMonth').value;
+            const kwh = Number(document.getElementById('historyKwh').value);
+            const cost = Number(document.getElementById('historyCost').value);
+            if (!month || !Number.isFinite(kwh) || kwh < 0 || !Number.isFinite(cost) || cost < 0) {
+                alert('Enter a billing month, non-negative consumption, and non-negative bill amount.');
+                return;
+            }
+            const existing = historicalData.findIndex(entry => entry.month === month);
+            const entry = { month, kwh, cost };
+            if (existing >= 0) historicalData[existing] = entry;
+            else historicalData.push(entry);
+            document.getElementById('historyMonth').value = '';
+            document.getElementById('historyKwh').value = '';
+            document.getElementById('historyCost').value = '';
+            renderHistoricalData(historicalData);
+            persistCurrentAuditEvidence();
+        }
+
+        function renderAuditPhotos(photos) {
+            const gallery = document.getElementById('auditPhotoGallery');
+            if (!gallery) return;
+            gallery.innerHTML = '';
+            photos.forEach((photo, index) => {
+                const figure = document.createElement('figure');
+                figure.className = 'audit-photo-card';
+                const image = document.createElement('img');
+                image.src = photo.url || photo.dataUrl || '';
+                image.alt = photo.name || `Audit photo ${index + 1}`;
+                const caption = document.createElement('figcaption');
+                caption.textContent = photo.name || `Audit photo ${index + 1}`;
+                const remove = document.createElement('button');
+                remove.type = 'button';
+                remove.className = 'btn-delete';
+                remove.textContent = 'Remove photo';
+                remove.addEventListener('click', () => {
+                    auditPhotos.splice(index, 1);
+                    renderAuditPhotos(auditPhotos);
+                    persistCurrentAuditEvidence();
+                });
+                figure.append(image, caption, remove);
+                gallery.appendChild(figure);
+            });
+        }
+
+        function resizeAuditPhoto(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onerror = () => reject(new Error(`Unable to read photo "${file.name}".`));
+                reader.onload = () => {
+                    const image = new Image();
+                    image.onerror = () => reject(new Error(`Photo "${file.name}" is not a readable image.`));
+                    image.onload = () => {
+                        const maxDimension = 1280;
+                        const scale = Math.min(1, maxDimension / Math.max(image.width, image.height));
+                        const canvas = document.createElement('canvas');
+                        canvas.width = Math.max(1, Math.round(image.width * scale));
+                        canvas.height = Math.max(1, Math.round(image.height * scale));
+                        canvas.getContext('2d').drawImage(image, 0, 0, canvas.width, canvas.height);
+                        resolve({
+                            name: file.name,
+                            dataUrl: canvas.toDataURL('image/jpeg', 0.78)
+                        });
+                    };
+                    image.src = reader.result;
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        async function handleAuditPhotos(files) {
+            const selectedFiles = Array.from(files || []);
+            if (!selectedFiles.length) return;
+            if (selectedFiles.some(file => !file.type.startsWith('image/'))) {
+                alert('Only image files can be added as audit photos.');
+                document.getElementById('auditPhotos').value = '';
+                return;
+            }
+            try {
+                const resizedPhotos = await Promise.all(selectedFiles.map(resizeAuditPhoto));
+                auditPhotos.push(...resizedPhotos);
+                persistCurrentAuditEvidence();
+                renderAuditPhotos(auditPhotos);
+            } catch (error) {
+                console.error('Unable to add audit photos.', error);
+                alert(error.message || 'Unable to add the selected audit photos.');
+            } finally {
+                document.getElementById('auditPhotos').value = '';
+            }
+        }
+
+        function loadSharedSubmissions() {
+            try {
+                const stored = JSON.parse(localStorage.getItem('enertrack_audit_submissions') || '[]');
+                if (!Array.isArray(stored)) throw new Error('Stored submissions must be an array.');
+                sharedSubmissions = stored.map(item => ({
+                    ...item,
+                    facilityInfo: { ...createEmptyFacilityInfo(), ...(item.facilityInfo || {}) },
+                    inventory: Array.isArray(item.inventory) ? item.inventory : [],
+                    historicalData: Array.isArray(item.historicalData) ? item.historicalData : [],
+                    photos: Array.isArray(item.photos) ? item.photos : []
+                }));
+            } catch (error) {
+                console.error('Unable to load shared audit submissions.', error);
+                alert('Audit submissions could not be loaded because the saved data is invalid.');
+                sharedSubmissions = [];
+            }
+        }
+
+        function saveSharedSubmissions() {
+            try {
+                localStorage.setItem('enertrack_audit_submissions', JSON.stringify(sharedSubmissions));
+            } catch (error) {
+                console.error('Unable to save auditor submissions.', error);
+                alert('The submission could not be saved. Browser storage may be full; remove some photos or free browser storage and try again.');
+                throw error;
+            }
+            renderProfiles();
+            updateUniversitySummary();
+            updateSubmissionStatus();
+        }
+
+        function getRegisteredAccounts() {
+            const users = JSON.parse(localStorage.getItem('g12_audit_users') || '{}');
+            const uniqueAccounts = new Map();
+            Object.values(users).forEach(user => {
+                if (user && user.email) uniqueAccounts.set(user.email, user);
+            });
+            return { users, accounts: Array.from(uniqueAccounts.values()) };
+        }
+
+        function hasAdministrator() {
+            return getRegisteredAccounts().accounts.some(user => user.role === 'admin');
+        }
+
+        function setAccountRole(email, role) {
+            const { users, accounts } = getRegisteredAccounts();
+            const account = accounts.find(user => user.email === email);
+            if (!account || !['admin', 'auditor'].includes(role)) return false;
+            if (account.role === 'admin' && role === 'auditor' && accounts.filter(user => user.role === 'admin').length <= 1) {
+                alert('At least one administrator account must remain.');
+                return false;
+            }
+            Object.keys(users).forEach(key => {
+                if (users[key] && (users[key].email === email || key === email)) {
+                    users[key].email = email;
+                    users[key].role = role;
+                }
+            });
+            localStorage.setItem('g12_audit_users', JSON.stringify(users));
+            if (currentUser && currentUser.email === email) {
+                currentUser.role = role;
+                localStorage.setItem('g12_active_session', JSON.stringify(currentUser));
+            }
+            renderProfiles();
+            return true;
+        }
+
+        function isAdministrator() {
+            if (!currentUser) return false;
+            const account = getRegisteredAccounts().accounts.find(user => user.email === currentUser.email);
+            return !!account && account.role === 'admin';
+        }
+
+        function claimAdministratorAccess() {
+            if (hasAdministrator()) {
+                alert('An administrator account has already been set up.');
+                renderProfiles();
+                return;
+            }
+            if (!confirm('Set up this account as the first EnerTrack administrator on this browser?')) return;
+            if (setAccountRole(currentUser.email, 'admin')) {
+                alert('Administrator access is now active for this account.');
+            }
+        }
+
+        function updateSubmissionStatus() {
+            const status = document.getElementById('submissionStatus');
+            if (!status || !currentUser) return;
+            const record = getCurrentAudit(false);
+            const submission = record && sharedSubmissions.find(item =>
+                item.id === record.key || item.auditKey === record.key || item.sourceAuditKey === record.key
+            );
+            if (!submission) {
+                status.textContent = 'Submit this facility audit for administrator review and approval.';
+                return;
+            }
+            const label = submission.status === 'approved' ? 'Approved' : submission.status === 'discarded' ? 'Discarded' : 'Pending administrator review';
+            const auditorSnapshot = submission.auditorSnapshot || {
+                facilityInfo: submission.facilityInfo,
+                inventory: submission.inventory
+            };
+            const hasUnsubmittedChanges = JSON.stringify(record.facilityInfo) !== JSON.stringify(auditorSnapshot.facilityInfo) ||
+                JSON.stringify(record.inventory) !== JSON.stringify(auditorSnapshot.inventory) ||
+                JSON.stringify(record.historicalData || []) !== JSON.stringify(auditorSnapshot.historicalData || []) ||
+                JSON.stringify(record.photos || []) !== JSON.stringify(auditorSnapshot.photos || []);
+            status.textContent = hasUnsubmittedChanges
+                ? `${label} — this audit has new local changes since submission. Submit again to send the latest version for approval.`
+                : `${label} — last submitted ${new Date(submission.submittedAt).toLocaleString()}.`;
+        }
+
+        function submitCurrentAudit() {
+            if (!currentUser) return;
+            const record = getCurrentAudit(false);
+            if (!record || !record.inventory.length) {
+                alert('Add at least one equipment item before submitting this facility audit.');
+                return;
+            }
+            const submittedAt = new Date().toISOString();
+            const submission = {
+                id: record.key,
+                auditKey: record.key,
+                auditorEmail: currentUser.email,
+                auditorName: currentUser.name,
+                facilityId: record.facilityId,
+                hostelName: record.hostelName || '',
+                facilityInfo: { ...record.facilityInfo },
+                inventory: JSON.parse(JSON.stringify(record.inventory)),
+                historicalData: JSON.parse(JSON.stringify(record.historicalData || [])),
+                photos: JSON.parse(JSON.stringify(record.photos || [])),
+                auditorSnapshot: {
+                    facilityInfo: { ...record.facilityInfo },
+                    inventory: JSON.parse(JSON.stringify(record.inventory)),
+                    historicalData: JSON.parse(JSON.stringify(record.historicalData || [])),
+                    photos: JSON.parse(JSON.stringify(record.photos || []))
+                },
+                report: record.report || '',
+                status: 'pending',
+                submittedAt,
+                reviewedAt: '',
+                reviewedBy: ''
+            };
+            const existingIndex = sharedSubmissions.findIndex(item => item.auditKey === submission.auditKey);
+            const priorSourceIndex = sharedSubmissions.findIndex(item => item.sourceAuditKey === submission.auditKey);
+            if (existingIndex >= 0) sharedSubmissions[existingIndex] = submission;
+            else if (priorSourceIndex >= 0) sharedSubmissions[priorSourceIndex] = submission;
+            else sharedSubmissions.push(submission);
+            saveSharedSubmissions();
+            alert('Facility audit submitted for administrator approval.');
+        }
+
+        function renderProfiles() {
+            if (!currentUser) return;
+            const admin = isAdministrator();
+            const { accounts } = getRegisteredAccounts();
+            const administrators = accounts.filter(account => account.role === 'admin');
+
+            document.getElementById('profileName').textContent = currentUser.name;
+            const role = document.getElementById('profileRole');
+            role.textContent = admin ? 'Administrator' : 'Auditor';
+            role.className = `profile-role ${admin ? 'role-admin' : 'role-auditor'}`;
+            document.getElementById('profileEmail').textContent = currentUser.email;
+            document.getElementById('adminSetupHint').textContent = administrators.length
+                ? (admin ? 'Administrator access is enabled for this profile.' : 'This profile can submit audits and track administrator review status.')
+                : 'No administrator is set up yet. Set up the first administrator to enable audit review.';
+            document.getElementById('claimAdminButton').style.display = !administrators.length ? 'inline-block' : 'none';
+            document.getElementById('adminAccountsPanel').style.display = admin ? 'block' : 'none';
+            document.getElementById('adminReviewPanel').style.display = admin ? 'block' : 'none';
+
+            const mine = document.getElementById('mySubmissionList');
+            mine.innerHTML = '';
+            const mySubmissions = sharedSubmissions.filter(item => item.auditorEmail === currentUser.email && item.status !== 'draft');
+            if (!mySubmissions.length) {
+                mine.textContent = 'No facility audits have been submitted from this profile yet.';
+            } else {
+                mySubmissions.forEach(item => {
+                    const row = document.createElement('div');
+                    row.className = 'submission-card';
+                    const heading = document.createElement('h5');
+                    heading.textContent = `${currentAuditLabel(item)} — ${item.status}`;
+                    const details = document.createElement('p');
+                    details.className = 'facility-hint';
+                    details.textContent = `Submitted ${new Date(item.submittedAt).toLocaleString()}${item.reviewedBy ? ` · Reviewed by ${item.reviewedBy}` : ''}`;
+                    row.append(heading, details);
+                    mine.appendChild(row);
+                });
+            }
+
+            renderAccountList(accounts);
+            renderAdminReviewQueue();
+        }
+
+        function renderAccountList(accounts) {
+            const list = document.getElementById('accountList');
+            list.innerHTML = '';
+            if (!isAdministrator()) return;
+            accounts.forEach(account => {
+                const row = document.createElement('div');
+                row.className = 'submission-card action-row';
+                const description = document.createElement('span');
+                description.textContent = `${account.name} · ${account.email} · ${account.role === 'admin' ? 'Administrator' : 'Auditor'}`;
+                const button = document.createElement('button');
+                button.className = 'btn-action';
+                button.textContent = account.role === 'admin' ? 'Make auditor' : 'Promote to admin';
+                button.disabled = account.email === currentUser.email && account.role === 'admin';
+                button.addEventListener('click', () => {
+                    const nextRole = account.role === 'admin' ? 'auditor' : 'admin';
+                    if (confirm(`Change ${account.name}'s role to ${nextRole === 'admin' ? 'administrator' : 'auditor'}?`)) {
+                        setAccountRole(account.email, nextRole);
+                    }
+                });
+                row.append(description, button);
+                list.appendChild(row);
+            });
+            if (!accounts.length) list.textContent = 'No registered accounts.';
+        }
+
+        function createReviewInput(labelText, value, type = 'text', fieldName = '') {
+            const group = document.createElement('div');
+            group.className = 'form-group';
+            const label = document.createElement('label');
+            label.textContent = labelText;
+            const input = type === 'textarea' ? document.createElement('textarea') : document.createElement('input');
+            if (type !== 'textarea') input.type = type;
+            input.value = value ?? '';
+            input.dataset.editField = fieldName;
+            group.append(label, input);
+            return group;
+        }
+
+        function createEquipmentReviewRow(item = {}) {
+            const row = document.createElement('div');
+            row.className = 'submission-equipment';
+            row.dataset.itemId = item.id || '';
+            const fields = [
+                ['Category', 'category', item.category || 'General', 'text'],
+                ['Equipment name', 'name', item.name || '', 'text'],
+                ['Watts', 'watts', item.watts ?? '', 'number'],
+                ['Quantity', 'qty', item.qty ?? '', 'number'],
+                ['Hours/day', 'hours', item.hours ?? '', 'number']
+            ];
+            fields.forEach(([label, name, value, type]) => {
+                const input = document.createElement('input');
+                input.type = type;
+                input.placeholder = label;
+                input.title = label;
+                input.dataset.equipmentField = name;
+                input.value = value;
+                if (type === 'number') input.step = 'any';
+                row.appendChild(input);
+            });
+            const remove = document.createElement('button');
+            remove.type = 'button';
+            remove.className = 'btn-delete';
+            remove.textContent = 'Remove';
+            remove.addEventListener('click', () => row.remove());
+            row.appendChild(remove);
+            return row;
+        }
+
+        function renderAdminReviewQueue() {
+            const queue = document.getElementById('adminReviewQueue');
+            if (!queue) return;
+            queue.innerHTML = '';
+            if (!isAdministrator()) return;
+
+            const submissions = sharedSubmissions.filter(item => item.status !== 'discarded');
+            if (!submissions.length) {
+                queue.textContent = 'There are no submitted audits to review.';
+                return;
+            }
+
+            submissions.slice().sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt)).forEach(submission => {
+                const card = document.createElement('article');
+                card.className = 'submission-card';
+                const heading = document.createElement('h5');
+                heading.textContent = `${currentAuditLabel(submission)} · ${submission.status.toUpperCase()}`;
+                const submitted = document.createElement('p');
+                submitted.className = 'facility-hint';
+                submitted.textContent = `Submitted by ${submission.auditorName} (${submission.auditorEmail}) on ${new Date(submission.submittedAt).toLocaleString()}`;
+                const metadata = document.createElement('div');
+                metadata.className = 'form-grid';
+
+                const facilityGroup = document.createElement('div');
+                facilityGroup.className = 'form-group';
+                const facilityLabel = document.createElement('label');
+                facilityLabel.textContent = 'Facility';
+                const facilitySelect = document.createElement('select');
+                facilitySelect.dataset.editField = 'facilityId';
+                facilityNames.forEach(name => {
+                    const option = document.createElement('option');
+                    option.value = name;
+                    option.textContent = name;
+                    facilitySelect.appendChild(option);
+                });
+                facilitySelect.value = submission.facilityId;
+                facilityGroup.append(facilityLabel, facilitySelect);
+                metadata.appendChild(facilityGroup);
+                metadata.appendChild(createReviewInput('Hostel name / identifier', submission.hostelName, 'text', 'hostelName'));
+                metadata.appendChild(createReviewInput('Location', submission.facilityInfo.facilityLocation, 'text', 'facilityLocation'));
+                metadata.appendChild(createReviewInput('Operating hours/day', submission.facilityInfo.operatingHours, 'number', 'operatingHours'));
+                metadata.appendChild(createReviewInput('Occupants / users', submission.facilityInfo.occupants, 'number', 'occupants'));
+                metadata.appendChild(createReviewInput('Energy sources', submission.facilityInfo.energySources, 'text', 'energySources'));
+                metadata.appendChild(createReviewInput('Audit date', submission.facilityInfo.auditDate, 'date', 'auditDate'));
+                metadata.appendChild(createReviewInput('Savings target (%)', submission.facilityInfo.savingsTarget ?? 15, 'number', 'savingsTarget'));
+                metadata.appendChild(createReviewInput('Audit purpose', submission.facilityInfo.auditPurpose, 'text', 'auditPurpose'));
+                metadata.appendChild(createReviewInput('Facility background', submission.facilityInfo.background, 'text', 'background'));
+                metadata.appendChild(createReviewInput('Audit scope', submission.facilityInfo.scope, 'text', 'scope'));
+                metadata.appendChild(createReviewInput(
+                    'Historical bills (one month,kWh,KES bill per line)',
+                    (submission.historicalData || []).map(entry => `${entry.month},${entry.kwh},${entry.cost}`).join('\n'),
+                    'textarea',
+                    'historicalData'
+                ));
+
+                const photoHeading = document.createElement('h5');
+                photoHeading.textContent = `Audit photos (${(submission.photos || []).length})`;
+                const photoGallery = document.createElement('div');
+                photoGallery.className = 'audit-photo-grid';
+                (submission.photos || []).forEach((photo, photoIndex) => {
+                    const figure = document.createElement('figure');
+                    figure.className = 'audit-photo-card';
+                    const image = document.createElement('img');
+                    image.src = photo.url || photo.dataUrl || '';
+                    image.alt = photo.name || 'Auditor site photo';
+                    const caption = document.createElement('figcaption');
+                    caption.textContent = photo.name || `Audit photo ${photoIndex + 1}`;
+                    const removePhoto = document.createElement('button');
+                    removePhoto.type = 'button';
+                    removePhoto.className = 'btn-delete';
+                    removePhoto.textContent = 'Remove photo';
+                    removePhoto.addEventListener('click', () => {
+                        submission.photos.splice(photoIndex, 1);
+                        figure.remove();
+                        photoHeading.textContent = `Audit photos (${submission.photos.length})`;
+                    });
+                    figure.append(image, caption, removePhoto);
+                    photoGallery.appendChild(figure);
+                });
+                const equipmentHeading = document.createElement('h5');
+                equipmentHeading.textContent = 'Equipment (category, name, watts, quantity, hours/day)';
+                const equipmentRows = document.createElement('div');
+                equipmentRows.className = 'review-equipment-list';
+                (submission.inventory || []).forEach(item => equipmentRows.appendChild(createEquipmentReviewRow(item)));
+                const addEquipment = document.createElement('button');
+                addEquipment.type = 'button';
+                addEquipment.className = 'btn-action';
+                addEquipment.textContent = 'Add equipment row';
+                addEquipment.addEventListener('click', () => equipmentRows.appendChild(createEquipmentReviewRow()));
+                const actions = document.createElement('div');
+                actions.className = 'action-row';
+                actions.style.marginTop = '1rem';
+
+                const save = document.createElement('button');
+                save.className = 'btn-action';
+                save.textContent = 'Save edits';
+                save.addEventListener('click', () => saveSubmissionEdits(submission.id, card));
+                const approve = document.createElement('button');
+                approve.className = 'btn-action';
+                approve.textContent = 'Approve';
+                approve.addEventListener('click', () => approveSubmission(submission.id, card));
+                const discard = document.createElement('button');
+                discard.className = 'btn-clear-all';
+                discard.textContent = 'Discard';
+                discard.addEventListener('click', () => discardSubmission(submission.id));
+                actions.append(save, approve, discard);
+                card.append(heading, submitted, metadata, photoHeading, photoGallery, equipmentHeading, equipmentRows, addEquipment, actions);
+                queue.appendChild(card);
+            });
+        }
+
+        function collectSubmissionEdits(id, card) {
+            const submission = sharedSubmissions.find(item => item.id === id);
+            if (!submission || !card || !isAdministrator()) return null;
+            const readField = name => card.querySelector(`[data-edit-field="${name}"]`).value.trim();
+            const facilityId = readField('facilityId');
+            const hostelName = readField('hostelName');
+            const rows = [...card.querySelectorAll('.submission-equipment')];
+            const inventory = [];
+            for (const row of rows) {
+                const readEquipment = name => row.querySelector(`[data-equipment-field="${name}"]`).value.trim();
+                const category = readEquipment('category');
+                const name = readEquipment('name');
+                const watts = Number(readEquipment('watts'));
+                const qty = Number(readEquipment('qty'));
+                const hours = Number(readEquipment('hours'));
+                if (!name || !category || !Number.isFinite(watts) || watts <= 0 || !Number.isInteger(qty) || qty < 1 ||
+                    !Number.isFinite(hours) || hours <= 0 || hours > 24) {
+                    alert('Each equipment row needs a category, name, positive wattage, whole-number quantity, and daily operating hours from 0 to 24.');
+                    return null;
+                }
+                inventory.push({
+                    id: Number(row.dataset.itemId) || Date.now() + inventory.length,
+                    category,
+                    name,
+                    watts,
+                    qty,
+                    hours,
+                    pf: 1
+                });
+            }
+            if (!inventory.length) {
+                alert('Keep at least one equipment row in the audit before saving or approving it.');
+                return null;
+            }
+            if (facilityId === 'Hostels' && !hostelName) {
+                alert('Enter the hostel name before saving or approving this audit.');
+                return null;
+            }
+            const savingsTarget = Number(readField('savingsTarget'));
+            if (!Number.isFinite(savingsTarget) || savingsTarget < 0 || savingsTarget > 100) {
+                alert('The estimated savings target must be between 0 and 100 percent.');
+                return null;
+            }
+            const historicalData = [];
+            const historyText = readField('historicalData');
+            for (const [index, line] of historyText.split(/\r?\n/).entries()) {
+                if (!line.trim()) continue;
+                const [month, kwhText, costText] = line.split(',').map(value => value.trim());
+                const kwh = Number(kwhText);
+                const cost = Number(costText);
+                if (!/^\d{4}-\d{2}$/.test(month) || !Number.isFinite(kwh) || kwh < 0 || !Number.isFinite(cost) || cost < 0) {
+                    alert(`Historical bill line ${index + 1} must be formatted as YYYY-MM,kWh,KES bill.`);
+                    return null;
+                }
+                historicalData.push({ month, kwh, cost });
+            }
+
+            const newAuditKey = facilityId === 'Hostels' ? `Hostels:${hostelName.toLocaleLowerCase()}` : facilityId;
+            const conflictingSubmission = sharedSubmissions.find(item =>
+                item.auditKey === newAuditKey && item.id !== submission.id && item.status !== 'discarded'
+            );
+            if (conflictingSubmission) {
+                alert('Another audit already exists for this facility. Resolve that submission before changing this facility name.');
+                return null;
+            }
+            if (newAuditKey !== submission.auditKey) {
+                submission.sourceAuditKey = submission.sourceAuditKey || submission.auditKey;
+                submission.auditKey = newAuditKey;
+                submission.id = newAuditKey;
+            }
+
+            submission.facilityId = facilityId;
+            submission.hostelName = facilityId === 'Hostels' ? hostelName : '';
+            submission.facilityInfo = {
+                facilityLocation: readField('facilityLocation'),
+                authorName: submission.auditorName,
+                operatingHours: readField('operatingHours'),
+                occupants: readField('occupants'),
+                energySources: readField('energySources'),
+                auditDate: readField('auditDate'),
+                savingsTarget,
+                auditPurpose: readField('auditPurpose'),
+                background: readField('background'),
+                scope: readField('scope')
+            };
+            submission.inventory = inventory;
+            submission.historicalData = historicalData;
+            submission.report = '';
+            submission.reviewedAt = '';
+            submission.reviewedBy = '';
+            return submission;
+        }
+
+        function saveSubmissionEdits(id, card) {
+            if (!isAdministrator()) return;
+            const submission = collectSubmissionEdits(id, card);
+            if (!submission) return;
+            submission.status = 'pending';
+            submission.lastEditedBy = currentUser.name;
+            saveSharedSubmissions();
+            alert('Edits saved. The audit is pending approval.');
+        }
+
+        function approveSubmission(id, card) {
+            if (!isAdministrator()) return;
+            const submission = collectSubmissionEdits(id, card);
+            if (!submission) return;
+            submission.status = 'approved';
+            submission.reviewedAt = new Date().toISOString();
+            submission.reviewedBy = currentUser.name;
+            saveSharedSubmissions();
+            alert('Audit approved. It is now included in university-wide totals.');
+        }
+
+        function discardSubmission(id) {
+            if (!isAdministrator()) return;
+            if (!confirm('Discard this audit submission? It will be excluded from university totals.')) return;
+            const submission = sharedSubmissions.find(item => item.id === id);
+            if (!submission) return;
+            submission.status = 'discarded';
+            submission.reviewedAt = new Date().toISOString();
+            submission.reviewedBy = currentUser.name;
+            saveSharedSubmissions();
+        }
+
+        function handleAuditSettingChange() {
+            const record = getCurrentAudit(false);
+            if (record) {
+                record.report = '';
+                record.reportGeneratedAt = '';
+                saveAudits();
+            }
+            calculateAll();
+            updateAuditReportDisplay();
+        }
+
+        function renderLoadRecommendationBoxes() {
+            const container = document.getElementById('auditorCommentsContainer');
+            container.innerHTML = '';
+
+            loadRecommendations.forEach((rec, index) => {
+                const box = document.createElement('div');
+                box.className = 'auditor-comment-box';
+                box.id = `recBox_${rec.id}`;
+
+                const isCustom = index >= 4;
+
+                box.innerHTML = `
+                    ${isCustom ? `<button class="btn-remove-custom-box" onclick="removeCustomLoadBox('${rec.id}')">✕ Delete Section</button>` : ''}
+                    <div style="display: flex; flex-direction: column; gap: 0.3rem;">
+                        <label>Target Load:</label>
+                        <input type="text" class="load-type-input" value="${rec.loadType}" 
+                            placeholder="e.g. Transformer Load / Generator Recommendations..." 
+                            oninput="updateLoadTypeName('${rec.id}', this.value)">
+                    </div>
+                    <label>Auditor Technical Recommendations:</label>
+                    <textarea placeholder="Write your recommendations here..." 
+                        oninput="updateLoadText('${rec.id}', this.value)">${rec.text}</textarea>
+                    <div class="print-comment-text" id="printRec_${rec.id}">${rec.text.trim() || 'No specific recommendations entered for this load type.'}</div>
+                `;
+                container.appendChild(box);
+            });
+        }
+
+        function addCustomLoadBox() {
+            const newId = 'custom_' + Date.now();
+            loadRecommendations.push({
+                id: newId,
+                loadType: 'Custom Load Section #' + (loadRecommendations.length + 1),
+                text: ''
+            });
+            saveAuditorComments();
+            renderLoadRecommendationBoxes();
+        }
+
+        function removeCustomLoadBox(id) {
+            loadRecommendations = loadRecommendations.filter(r => r.id !== id);
+            saveAuditorComments();
+            renderLoadRecommendationBoxes();
+        }
+
+        function updateLoadTypeName(id, val) {
+            const item = loadRecommendations.find(r => r.id === id);
+            if (item) {
+                item.loadType = val;
+                saveAuditorComments();
+            }
+        }
+
+        function updateLoadText(id, val) {
+            const item = loadRecommendations.find(r => r.id === id);
+            if (item) {
+                item.text = val;
+                const printElem = document.getElementById(`printRec_${id}`);
+                if (printElem) {
+                    printElem.textContent = val.trim() || 'No specific recommendations entered for this load type.';
+                }
+                saveAuditorComments();
+            }
+        }
+
+        function saveAuditorComments() {
+            if (!currentUser) return;
+            localStorage.setItem(`g12_recs_${currentUser.email}`, JSON.stringify(loadRecommendations));
+
+            const indicator = document.getElementById('saveIndicator');
+            if (indicator) {
+                indicator.classList.add('visible');
+                clearTimeout(saveTimeout);
+                saveTimeout = setTimeout(() => {
+                    indicator.classList.remove('visible');
+                }, 1500);
+            }
+        }
+
+        function loadAuditorComments() {
+            if (!currentUser) return;
+            const stored = localStorage.getItem(`g12_recs_${currentUser.email}`);
+            if (stored) {
+                try {
+                    loadRecommendations = JSON.parse(stored);
+                } catch(e) { console.error("Error parsing stored recommendations", e); }
+            }
+            renderLoadRecommendationBoxes();
+        }
+
+        function init3DLogos() {
+            const container = document.getElementById('header3DLogo');
+            if (!container) return;
+            container.innerHTML = '';
+            if (typeof THREE === 'undefined') {
+                container.textContent = '⚡';
+                console.warn('Three.js is unavailable; using the text logo fallback.');
+                return;
+            }
+
+            const scene = new THREE.Scene();
+            const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 1000);
+            camera.position.z = 3.2;
+
+            const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+            renderer.setSize(32, 32);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            container.appendChild(renderer.domElement);
+
+            const shape = new THREE.Shape();
+            shape.moveTo(-0.1, 0.9);
+            shape.lineTo(-0.7, 0.0);
+            shape.lineTo(-0.15, 0.0);
+            shape.lineTo(-0.45, -0.9);
+            shape.lineTo(0.7, 0.1);
+            shape.lineTo(0.15, 0.1);
+            shape.lineTo(0.45, 0.9);
+            shape.closePath();
+
+            const extrudeSettings = { steps: 1, depth: 0.25, bevelEnabled: true, bevelThickness: 0.05, bevelSize: 0.05, bevelSegments: 3 };
+            const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+            geometry.center();
+
+            const material = new THREE.MeshPhongMaterial({ color: 0xffbb00, emissive: 0x443000, specular: 0xffffff, shininess: 100 });
+            const boltMesh = new THREE.Mesh(geometry, material);
+            scene.add(boltMesh);
+
+            const ringGeo = new THREE.TorusGeometry(1.0, 0.04, 16, 60);
+            const ringMat = new THREE.MeshBasicMaterial({ color: 0x04e617 });
+            const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+            ringMesh.rotation.x = Math.PI / 3;
+            scene.add(ringMesh);
+
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+            scene.add(ambientLight);
+            const pointLight = new THREE.PointLight(0xffffff, 1.2);
+            pointLight.position.set(2, 3, 4);
+            scene.add(pointLight);
+
+            function animate() {
+                requestAnimationFrame(animate);
+                boltMesh.rotation.y += 0.025;
+                ringMesh.rotation.z -= 0.015;
+                renderer.render(scene, camera);
+            }
+            animate();
+        }
+
+        function handlePrintReport() {
+            updateFacilityLabels();
+            document.getElementById('printHeaderUserName').textContent = currentUser ? currentUser.name : 'Not Specified';
+            window.print();
+        }
+
+        function toggleAuthView(view) {
+            document.getElementById('registerFormView').style.display = 'none';
+            document.getElementById('loginFormView').style.display = 'none';
+            document.getElementById('forgotFormView').style.display = 'none';
+
+            if (view === 'login') document.getElementById('loginFormView').style.display = 'block';
+            else if (view === 'register') document.getElementById('registerFormView').style.display = 'block';
+            else if (view === 'forgot') document.getElementById('forgotFormView').style.display = 'block';
+        }
+
+        function handleRegister() {
+            const name = document.getElementById('regName').value.trim();
+            const regNo = document.getElementById('regRegNo').value.trim();
+            const email = document.getElementById('regEmail').value.trim();
+            const pass = document.getElementById('regPass').value;
+
+            if (!name || !email || !pass) return;
+
+            const users = JSON.parse(localStorage.getItem('g12_audit_users') || '{}');
+            
+            // Prevent duplicate use of email address
+            if (users[email] || Object.values(users).some(u => u.email === email)) {
+                alert('This email address is already registered. Please use a different email or log in.');
+                return;
+            }
+
+            users[email] = { name: name, regNo: regNo, password: pass, email: email, role: 'auditor' };
+            users[regNo] = { name: name, regNo: regNo, password: pass, email: email, role: 'auditor' };
+            localStorage.setItem('g12_audit_users', JSON.stringify(users));
+
+            loginUser(name, email);
+            document.getElementById('authorName').value = name;
+            saveFacilityDetails();
+        }
+
+        function handleLogin() {
+            const identifier = document.getElementById('loginEmail').value.trim();
+            const pass = document.getElementById('loginPass').value;
+            const users = JSON.parse(localStorage.getItem('g12_audit_users') || '{}');
+
+            if (users[identifier] && users[identifier].password === pass) {
+                const userObj = users[identifier];
+                loginUser(userObj.name, userObj.email || identifier, userObj.role || 'auditor');
+            } else {
+                alert('Invalid credentials. Please verify your login details.');
+            }
+        }
+
+        function handleResetPassword() {
+            const email = document.getElementById('forgotEmail').value.trim();
+            const newPass = document.getElementById('forgotNewPass').value;
+
+            if (!email || !newPass) return;
+
+            const users = JSON.parse(localStorage.getItem('g12_audit_users') || '{}');
+            if (users[email]) {
+                users[email].password = newPass;
+                localStorage.setItem('g12_audit_users', JSON.stringify(users));
+                alert('Password reset successful! Please log in.');
+                toggleAuthView('login');
+            } else {
+                alert('Account not found with that email address.');
+            }
+        }
+
+        function loginUser(name, email, role = 'auditor') {
+            currentUser = { name, email, role };
+            localStorage.setItem('g12_active_session', JSON.stringify(currentUser));
+            document.getElementById('userNameDisplay').textContent = name;
+            document.getElementById('printHeaderUserName').textContent = name;
+            document.getElementById('authOverlay').style.display = 'none';
+
+            loadUserData();
+            loadAuditorComments();
+            loadSharedSubmissions();
+            renderProfiles();
+        }
+
+        function handleLogout() {
+            currentUser = null;
+            localStorage.removeItem('g12_active_session');
+            audits = [];
+            inventory = [];
+            sharedSubmissions = [];
+            renderInventoryTable();
+            updateKPIs(0, 0, 0, 0, 0, 0);
+            updateCharts();
+            updateUniversitySummary();
+            document.getElementById('userNameDisplay').textContent = 'Auditor';
+            document.getElementById('printHeaderUserName').textContent = 'Auditor';
+            document.getElementById('authOverlay').style.display = 'flex';
+        }
+
+        function checkSession() {
+            const session = localStorage.getItem('g12_active_session');
+            if (session) {
+                const user = JSON.parse(session);
+                const account = getRegisteredAccounts().accounts.find(item => item.email === user.email);
+                currentUser = { ...user, role: account ? account.role : 'auditor' };
+                document.getElementById('userNameDisplay').textContent = user.name;
+                document.getElementById('printHeaderUserName').textContent = user.name;
+                document.getElementById('authOverlay').style.display = 'none';
+                loadUserData();
+                loadAuditorComments();
+                loadSharedSubmissions();
+                renderProfiles();
+            } else {
+                document.getElementById('authOverlay').style.display = 'flex';
+            }
+        }
+
+        function switchPage(page) {
+            document.querySelectorAll('.page-view').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+
+            const pageToTab = {
+                dashboard: ['pageDashboard', 'tabDashboard'],
+                facilities: ['pageFacilities', 'tabFacilities'],
+                university: ['pageUniversity', 'tabUniversity'],
+                audit: ['pageAudit', 'tabAudit'],
+                measures: ['pageMeasures', 'tabMeasures'],
+                profiles: ['pageProfiles', 'tabProfiles']
+            };
+            const target = pageToTab[page];
+            if (!target) return;
+            document.getElementById(target[0]).classList.add('active');
+            document.getElementById(target[1]).classList.add('active');
+            if (page === 'audit') updateCharts();
+            if (page === 'university') updateUniversitySummary();
+            if (page === 'profiles') renderProfiles();
+        }
+
+        function loadUserData() {
+            if (!currentUser) return;
+            const auditsKey = `g12_audits_${currentUser.email}`;
+            const storedAudits = localStorage.getItem(auditsKey);
+            if (storedAudits) {
+                try {
+                    audits = JSON.parse(storedAudits);
+                    if (!Array.isArray(audits)) throw new Error('Stored audits must be an array.');
+                    audits = audits.map(audit => ({
+                        key: audit.key || audit.facilityId,
+                        facilityId: audit.facilityId || 'Admin',
+                        hostelName: audit.hostelName || '',
+                        facilityInfo: { ...createEmptyFacilityInfo(), ...(audit.facilityInfo || {}) },
+                        inventory: Array.isArray(audit.inventory) ? audit.inventory : [],
+                        historicalData: Array.isArray(audit.historicalData) ? audit.historicalData : [],
+                        photos: Array.isArray(audit.photos) ? audit.photos : [],
+                        report: audit.report || '',
+                        reportGeneratedAt: audit.reportGeneratedAt || ''
+                    }));
+                } catch (error) {
+                    console.error('Unable to load saved facility audits.', error);
+                    alert('Saved audit data could not be read. The app will open with empty facility audits.');
+                    audits = [];
+                }
+            } else {
+                audits = [];
+                const legacyInventory = localStorage.getItem(`g12_inventory_${currentUser.email}`);
+                const legacyFacility = localStorage.getItem(`g12_facility_${currentUser.email}`);
+                let oldItems = [];
+                let oldInfo = {};
+                try {
+                    oldItems = legacyInventory ? JSON.parse(legacyInventory) : [];
+                    oldInfo = legacyFacility ? JSON.parse(legacyFacility) : {};
+                } catch (error) {
+                    console.error('Unable to migrate previous audit data.', error);
+                    alert('Previous audit data could not be migrated because its saved format is invalid.');
+                }
+                const oldBuildingName = (oldInfo.buildingName || '').trim();
+                const matchingFacility = facilityNames.find(name => name.toLocaleLowerCase() === oldBuildingName.toLocaleLowerCase());
+                const legacyFacilityId = matchingFacility || (/hostel/i.test(oldBuildingName) ? 'Hostels' : 'Admin');
+                const legacyHostelName = legacyFacilityId === 'Hostels' ? oldBuildingName : '';
+                if (oldItems.length || Object.keys(oldInfo).length) {
+                    const key = legacyFacilityId === 'Hostels' && legacyHostelName
+                        ? `Hostels:${legacyHostelName.toLocaleLowerCase()}`
+                        : legacyFacilityId;
+                    audits.push({
+                        key,
+                        facilityId: legacyFacilityId,
+                        hostelName: legacyHostelName,
+                        facilityInfo: {
+                            facilityLocation: oldInfo.facilityLocation || '',
+                            authorName: oldInfo.authorName || ''
+                        },
+                        inventory: Array.isArray(oldItems) ? oldItems : [],
+                        historicalData: [],
+                        photos: [],
+                        report: '',
+                        reportGeneratedAt: ''
+                    });
+                }
+            }
+
+            loadSharedSubmissions();
+            facilityNames.filter(name => name !== 'Hostels').forEach(name => {
+                if (!audits.some(audit => audit.key === name)) {
+                    audits.push({
+                        key: name,
+                        facilityId: name,
+                        hostelName: '',
+                        facilityInfo: createEmptyFacilityInfo(),
+                        inventory: [],
+                        historicalData: [],
+                        photos: [],
+                        report: '',
+                        reportGeneratedAt: ''
+                    });
+                }
+            });
+
+            const populatedAudit = audits.find(audit => audit.inventory.length > 0);
+            selectedFacility = populatedAudit ? populatedAudit.facilityId : 'Admin';
+            selectedHostelName = populatedAudit && populatedAudit.facilityId === 'Hostels' ? populatedAudit.hostelName : '';
+            initializeFacilitySelector();
+            loadActiveAudit();
+            saveAudits();
+        }
+
+        function saveUserData() {
+            if (!currentUser) return;
+            const record = getCurrentAudit();
+            if (record) {
+                record.inventory = inventory;
+                saveAudits();
+            }
+            updateUniversitySummary();
+            updateSubmissionStatus();
+        }
+
+        function addEquipment() {
+            if (selectedFacility === 'Hostels' && !selectedHostelName) {
+                alert('Enter the hostel name before adding its equipment.');
+                return;
+            }
+            const category = document.getElementById('equipmentCategory').value;
+            const name = document.getElementById('equipment').value.trim();
+            const watts = parseFloat(document.getElementById('wattage').value);
+            const pf = 1;
+            const qty = parseInt(document.getElementById('availableNumber').value);
+            const hours = parseFloat(document.getElementById('operatingHours').value);
+
+            if (!name || !Number.isFinite(watts) || watts <= 0 || !Number.isInteger(qty) || qty < 1 || !Number.isFinite(hours) || hours <= 0 || hours > 24) {
+                alert('Enter a valid equipment name, positive power, whole-number quantity, and daily operating hours from 0 to 24.');
+                return;
+            }
+
+            const item = { id: Date.now(), category, name, watts, pf, qty, hours };
+            inventory.push(item);
+            const record = getCurrentAudit();
+            if (record) {
+                record.report = '';
+                record.reportGeneratedAt = '';
+            }
+            saveUserData();
+
+            document.getElementById('auditForm').reset();
+            handleCategoryChange();
+            calculateAll();
+            updateAuditReportDisplay();
+        }
+
+        function deleteItem(id) {
+            inventory = inventory.filter(i => i.id !== id);
+            const record = getCurrentAudit();
+            if (record) {
+                record.report = '';
+                record.reportGeneratedAt = '';
+            }
+            saveUserData();
+            calculateAll();
+            updateAuditReportDisplay();
+        }
+
+        function clearAll() {
+            if (confirm('Are you sure you want to clear all equipment inventory items?')) {
+                inventory = [];
+                const record = getCurrentAudit();
+                if (record) {
+                    record.report = '';
+                    record.reportGeneratedAt = '';
+                }
+                saveUserData();
+                calculateAll();
+                updateAuditReportDisplay();
+            }
+        }
+
+        function calculateAll() {
+            const tariff = parseFloat(document.getElementById('tariffRate').value) || 22.00;
+            const emissionFactor = parseFloat(document.getElementById('emissionFactor').value) || 0.332;
+
+            const totals = calculateInventoryTotals(inventory, tariff, emissionFactor);
+            updateKPIs(totals.monthlyKwh, totals.monthlyCost, totals.monthlyCarbon, totals.activePowerKw, totals.reactiveKvar, totals.kva);
+            renderInventoryTable();
+            updateCharts();
+            updateUniversitySummary();
+        }
+
+        function calculateInventoryTotals(items, tariff, emissionFactor) {
+            const totals = {
+                monthlyKwh: 0,
+                monthlyCost: 0,
+                monthlyCarbon: 0,
+                activePowerWatts: 0,
+                reactiveKvar: 0,
+                kva: 0
+            };
+            items.forEach(item => {
+                item.dailyKwh = (item.watts * item.qty * item.hours) / 1000;
+                item.monthlyKwh = item.dailyKwh * 30;
+                item.monthlyCost = item.monthlyKwh * tariff;
+                item.monthlyCarbon = item.monthlyKwh * emissionFactor;
+                
+                const pf = (item.pf && item.pf > 0) ? item.pf : 1.0;
+                item.activePowerKw = (item.watts * item.qty) / 1000;
+                item.kva = item.activePowerKw / pf;
+                item.kvar = Math.sqrt(Math.max(0, Math.pow(item.kva, 2) - Math.pow(item.activePowerKw, 2)));
+
+                totals.monthlyKwh += item.monthlyKwh;
+                totals.monthlyCost += item.monthlyCost;
+                totals.monthlyCarbon += item.monthlyCarbon;
+                totals.activePowerWatts += item.watts * item.qty;
+                totals.reactiveKvar += item.kvar;
+                totals.kva += item.kva;
+            });
+            totals.activePowerKw = totals.activePowerWatts / 1000;
+            return totals;
+        }
+
+        function updateKPIs(kwh, cost, carbon, activeKw, reactiveKvar, kva) {
+            document.getElementById('kpiKwh').textContent = `${kwh.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kWh`;
+            document.getElementById('kpiCost').textContent = `KES ${cost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+            document.getElementById('kpiActivePower').textContent = `${activeKw.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kW`;
+            document.getElementById('kpiCarbon').textContent = `${carbon.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg CO₂e`;
+        }
+
+        function updateUniversitySummary() {
+            const tariff = parseFloat(document.getElementById('tariffRate').value) || 12;
+            const emissionFactor = parseFloat(document.getElementById('emissionFactor').value) || 0.05;
+            const groupedAudits = new Map();
+            facilityNames.forEach(name => {
+                groupedAudits.set(name, { label: name, items: 0, kwh: 0, cost: 0, carbon: 0 });
+            });
+            const approvedSubmissions = sharedSubmissions.filter(record => record.status === 'approved');
+            if (approvedSubmissions.some(record => record.facilityId === 'Hostels')) groupedAudits.delete('Hostels');
+            approvedSubmissions.forEach(record => {
+                const label = currentAuditLabel(record);
+                const items = Array.isArray(record.inventory) ? record.inventory : [];
+                const totals = calculateInventoryTotals(items, tariff, emissionFactor);
+                const existing = groupedAudits.get(label) || { label, items: 0, kwh: 0, cost: 0, carbon: 0 };
+                existing.items += items.length;
+                existing.kwh += totals.monthlyKwh;
+                existing.cost += totals.monthlyCost;
+                existing.carbon += totals.monthlyCarbon;
+                groupedAudits.set(label, existing);
+            });
+
+            const summaries = Array.from(groupedAudits.values());
+            const totals = summaries.reduce((sum, facility) => ({
+                kwh: sum.kwh + facility.kwh,
+                cost: sum.cost + facility.cost,
+                carbon: sum.carbon + facility.carbon
+            }), { kwh: 0, cost: 0, carbon: 0 });
+            const auditedCount = summaries.filter(facility => facility.items > 0).length;
+            const format = value => value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            document.getElementById('universityKwh').textContent = `${format(totals.kwh)} kWh`;
+            document.getElementById('universityCost').textContent = `KES ${format(totals.cost)}`;
+            document.getElementById('universityCarbon').textContent = `${format(totals.carbon)} kg CO₂e`;
+            document.getElementById('dashboardUniversityKwh').textContent = `${format(totals.kwh)} kWh`;
+            document.getElementById('dashboardUniversityCost').textContent = `KES ${format(totals.cost)}`;
+            document.getElementById('dashboardFacilityCount').textContent = `${auditedCount} / ${facilityNames.length + summaries.filter(facility => facility.label.startsWith('Hostels - ')).length}`;
+
+            const tbody = document.getElementById('universityFacilityBody');
+            tbody.innerHTML = '';
+            summaries.sort((a, b) => a.label.localeCompare(b.label));
+            summaries.forEach(facility => {
+                const row = document.createElement('tr');
+                [facility.label, facility.items, `${format(facility.kwh)} kWh`, `KES ${format(facility.cost)}`].forEach(value => {
+                    const cell = document.createElement('td');
+                    cell.textContent = value;
+                    row.appendChild(cell);
+                });
+                tbody.appendChild(row);
+            });
+            if (!summaries.length) {
+                const row = document.createElement('tr');
+                const cell = document.createElement('td');
+                cell.colSpan = 4;
+                cell.className = 'empty-state';
+                cell.textContent = 'No facility audit data yet.';
+                row.appendChild(cell);
+                tbody.appendChild(row);
+            }
+
+            const canvas = document.getElementById('universityChart');
+            if (universityChartInstance) universityChartInstance.destroy();
+            if (canvas && typeof Chart !== 'undefined') {
+                canvas.style.display = 'block';
+                const fallback = canvas.parentElement.querySelector('.chart-unavailable');
+                if (fallback) fallback.remove();
+                universityChartInstance = new Chart(canvas.getContext('2d'), {
+                    type: 'bar',
+                    data: {
+                        labels: summaries.map(facility => facility.label),
+                        datasets: [{
+                            label: 'Monthly Energy (kWh)',
+                            data: summaries.map(facility => facility.kwh),
+                            backgroundColor: '#04e617',
+                            borderRadius: 6
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            x: { ticks: { color: '#a0aec0' }, grid: { display: false } },
+                            y: { ticks: { color: '#a0aec0' }, grid: { color: '#2d3748' } }
+                        }
+                    }
+                });
+            } else if (canvas) {
+                showChartUnavailable(canvas);
+            }
+        }
+
+        function generateAuditReport() {
+            const record = getCurrentAudit(false);
+            if (!record || !inventory.length) {
+                alert('Add at least one equipment item to this facility audit before generating a report.');
+                return;
+            }
+
+            const tariff = parseFloat(document.getElementById('tariffRate').value) || 12;
+            const emissionFactor = parseFloat(document.getElementById('emissionFactor').value) || 0.05;
+            const totals = calculateInventoryTotals(inventory, tariff, emissionFactor);
+            const categoryTotals = new Map();
+            inventory.forEach(item => {
+                const current = categoryTotals.get(item.category) || { dailyKwh: 0, monthlyKwh: 0 };
+                current.dailyKwh += item.dailyKwh;
+                current.monthlyKwh += item.monthlyKwh;
+                categoryTotals.set(item.category, current);
+            });
+            const largestLoad = inventory.reduce((largest, item) => item.monthlyKwh > largest.monthlyKwh ? item : largest, inventory[0]);
+            const largestShare = totals.monthlyKwh ? (largestLoad.monthlyKwh / totals.monthlyKwh) * 100 : 0;
+            const categories = Array.from(categoryTotals.entries()).sort((a, b) => b[1].monthlyKwh - a[1].monthlyKwh);
+            const historical = (record.historicalData || []).slice().sort((a, b) => a.month.localeCompare(b.month));
+            const historyKwh = historical.reduce((sum, entry) => sum + Number(entry.kwh), 0);
+            const historyCost = historical.reduce((sum, entry) => sum + Number(entry.cost), 0);
+            const averageHistoryKwh = historical.length ? historyKwh / historical.length : null;
+            const historyTrend = historical.length > 1
+                ? Number(historical[historical.length - 1].kwh) - Number(historical[0].kwh)
+                : null;
+            const savingsTarget = Math.min(100, Math.max(0, Number(facilityInfo.savingsTarget) || 0));
+            const monthlySavingsKwh = totals.monthlyKwh * savingsTarget / 100;
+            const monthlySavingsCost = monthlySavingsKwh * tariff;
+            const expectedMonthlyKwh = totals.monthlyKwh - monthlySavingsKwh;
+            const reportReference = record.reportReference ||
+                `ET-${(facilityInfo.auditDate || new Date().toISOString().slice(0, 10)).replace(/-/g, '')}-${record.key.replace(/[^a-z0-9]/gi, '').slice(0, 8).toUpperCase()}`;
+            record.reportReference = reportReference;
+            const findings = [];
+            if (largestLoad.hours >= 12) findings.push(`${largestLoad.name} operates ${largestLoad.hours} hours/day and is the largest individual energy load. Review operating schedules and switch-off controls.`);
+            if (largestShare >= 40) findings.push(`The largest load, ${largestLoad.name}, represents ${largestShare.toFixed(1)}% of this audit's estimated energy use; prioritize efficiency checks for this equipment.`);
+            if (categoryTotals.has('Lighting')) findings.push('Review lighting schedules, occupancy controls, and LED suitability in this facility.');
+            if (categoryTotals.has('HVAC')) findings.push('Inspect cooling setpoints, filters, ventilation schedules, and HVAC maintenance.');
+            if (categoryTotals.has('Motors')) findings.push('Inspect motor and pump alignment, bearings, filters, and operating schedules; assess variable-speed controls where appropriate.');
+            if (categoryTotals.has('Electronics')) findings.push('Enable power management and switch off idle computers and other non-essential equipment.');
+            if (!historical.length) findings.push('Collect monthly utility bills or meter readings to establish a historical baseline and validate this equipment-based estimate.');
+            if (!findings.length) findings.push('Verify the entered equipment inventory against site measurements and continue routine energy monitoring.');
+            const auditorFindings = String(record.findings || '').split(/\r?\n/).map(item => item.trim()).filter(Boolean);
+            findings.push(...auditorFindings.map(item => `Auditor finding: ${item}`));
+
+            const equipmentRows = inventory.map(item => {
+                const share = totals.monthlyKwh ? item.monthlyKwh / totals.monthlyKwh * 100 : 0;
+                return `${item.name} (${item.category}), Qty ${item.qty}, ${item.watts} W each, ${item.hours} h/day; ${item.dailyKwh.toFixed(2)} kWh/day, ${item.monthlyKwh.toFixed(2)} kWh/month (${share.toFixed(1)}% of total).`;
+            });
+            const categoryRows = categories.map(([category, values]) => {
+                const share = totals.monthlyKwh ? values.monthlyKwh / totals.monthlyKwh * 100 : 0;
+                return `${category}: ${values.dailyKwh.toFixed(2)} kWh/day; ${values.monthlyKwh.toFixed(2)} kWh/month; ${share.toFixed(1)}% contribution.`;
+            });
+            const actionForCategory = {
+                Lighting: 'Review LED suitability, occupancy controls, and switching schedules',
+                HVAC: 'Optimize cooling setpoints, servicing, and operating schedules',
+                Motors: 'Service motors and pumps; assess suitable variable-speed controls',
+                Electronics: 'Enable power management and switch off idle equipment'
+            };
+            const recommendations = categories.map(([category, values], index) => {
+                const share = totals.monthlyKwh ? values.monthlyKwh / totals.monthlyKwh : 0;
+                const saved = monthlySavingsKwh * share;
+                const priority = share >= 0.3 ? 'High' : 'Medium';
+                const timeline = priority === 'High' ? 'Immediate to 1 month' : 'Within 3 months';
+                const action = actionForCategory[category] || `Review ${category.toLowerCase()} operating schedules and maintenance`;
+                return `${index + 1}. ${action} — Priority: ${priority}; Timeline: ${timeline}. Planning allocation: ${saved.toFixed(2)} kWh/month; KES ${(saved * tariff).toFixed(2)}/month; KES ${(saved * tariff * 12).toFixed(2)}/year.`;
+            });
+            const auditorRecommendations = Array.isArray(record.recommendations) ? record.recommendations : [];
+            recommendations.push(...auditorRecommendations.map((item, index) => `${recommendations.length + index + 1}. Auditor recommendation: ${item}`));
+            if (!recommendations.length) recommendations.push(`1. Verify equipment inventory and optimize operating schedules — Priority: Medium; Timeline: Within 3 months. Estimated planning potential: ${monthlySavingsKwh.toFixed(2)} kWh/month.`);
+            const historicalRows = historical.length
+                ? historical.map(entry => `${entry.month}: ${Number(entry.kwh).toFixed(2)} kWh; KES ${Number(entry.cost).toFixed(2)}.`)
+                : ['No historical utility-bill data was entered.'];
+            const annualKwh = totals.monthlyKwh * 12;
+            const annualCost = totals.monthlyCost * 12;
+
+            const generatedAt = new Date();
+            const report = [
+                'ENERTRACK | ENERGY AUDIT REPORT',
+                '1. COVER PAGE',
+                'Institution: Moi University',
+                `Facility: ${currentAuditLabel(record)}`,
+                `Physical location: ${facilityInfo.facilityLocation || 'Not recorded'}`,
+                'Report title: Energy Audit Report',
+                `Date of audit: ${facilityInfo.auditDate || 'Not recorded'}`,
+                `Auditor: ${facilityInfo.authorName || (currentUser ? currentUser.name : 'Not recorded')}`,
+                `Report reference: ${reportReference}`,
+                `Generated: ${generatedAt.toLocaleString()}`,
+                '',
+                '2. EXECUTIVE SUMMARY',
+                `Estimated consumption is ${totals.monthlyKwh.toFixed(2)} kWh/month (${annualKwh.toFixed(2)} kWh/year). Estimated expenditure at KES ${tariff.toFixed(2)}/kWh is KES ${totals.monthlyCost.toFixed(2)}/month and KES ${annualCost.toFixed(2)}/year.`,
+                `Estimated emissions: ${totals.monthlyCarbon.toFixed(2)} kg CO₂e/month. The largest listed load is ${largestLoad.name} (${largestShare.toFixed(1)}% of the equipment-based estimate).`,
+                `Illustrative savings target: ${savingsTarget.toFixed(1)}%, or ${monthlySavingsKwh.toFixed(2)} kWh/month and KES ${monthlySavingsCost.toFixed(2)}/month. This planning scenario is not a measured or guaranteed saving.`,
+                `Key findings: ${findings.slice(0, 4).join(' ')}`,
+                '',
+                '3. INTRODUCTION AND BACKGROUND',
+                `Purpose: ${facilityInfo.auditPurpose || 'Assess facility equipment energy use and identify practical opportunities to reduce consumption and cost.'}`,
+                `Background: ${facilityInfo.background || 'No additional facility background was supplied.'}`,
+                'Objectives: establish an equipment-based baseline, identify major loads, and develop prioritized conservation actions.',
+                `Scope: ${facilityInfo.scope || 'Systems listed in the equipment inventory; confirm site coverage with the auditor.'}`,
+                '',
+                '4. FACILITY INFORMATION',
+                `Facility: ${currentAuditLabel(record)}`,
+                `Location: ${facilityInfo.facilityLocation || 'Not recorded'}`,
+                `Operating hours: ${facilityInfo.operatingHours ? `${facilityInfo.operatingHours} hours/day` : 'Not recorded'}`,
+                `Occupants/users: ${facilityInfo.occupants || 'Not recorded'}`,
+                `Energy sources: ${facilityInfo.energySources || 'Not recorded'}`,
+                '',
+                '5. ENERGY CONSUMPTION ANALYSIS',
+                `Equipment-based estimate: ${totals.monthlyKwh.toFixed(2)} kWh/month; KES ${totals.monthlyCost.toFixed(2)}/month at KES ${tariff.toFixed(2)}/kWh.`,
+                `Annualized estimate: ${annualKwh.toFixed(2)} kWh/year; KES ${annualCost.toFixed(2)}/year. Annualized values assume a representative month; they are not historical bills.`,
+                `Historical utility data (${historical.length} month(s)): ${averageHistoryKwh === null ? 'unavailable' : `average ${averageHistoryKwh.toFixed(2)} kWh/month and KES ${(historyCost / historical.length).toFixed(2)}/month`}.`,
+                `Historical change from first to last entered month: ${historyTrend === null ? 'not available' : `${historyTrend >= 0 ? '+' : ''}${historyTrend.toFixed(2)} kWh`}.`,
+                ...historicalRows.map(line => `- ${line}`),
+                'Use the EnerTrack energy charts to review this audit and approved university facility totals.',
+                '',
+                '6. EQUIPMENT AND ENERGY USAGE ASSESSMENT',
+                `Equipment entries: ${inventory.length}. Estimated connected load: ${totals.activePowerKw.toFixed(2)} kW; this is the sum of rated loads, not a measured peak demand.`,
+                ...equipmentRows.map(line => `- ${line}`),
+                'Category consumption:',
+                ...categoryRows.map(line => `- ${line}`),
+                '',
+                '7. ENERGY PERFORMANCE ASSESSMENT',
+                `Largest individual load: ${largestLoad.name}, ${largestLoad.monthlyKwh.toFixed(2)} kWh/month (${largestShare.toFixed(1)}%).`,
+                `Estimated daily consumption: ${(totals.monthlyKwh / 30).toFixed(2)} kWh/day.`,
+                'Power factor and measured maximum demand were not collected. Equipment efficiency, load distribution at the meter, and energy losses require site inspection and measurement.',
+                '',
+                '8. IDENTIFIED ENERGY CONSERVATION OPPORTUNITIES',
+                ...findings.map((finding, index) => `${index + 1}. ${finding}`),
+                '',
+                '9. ESTIMATED ENERGY AND COST SAVINGS',
+                `Auditor-entered planning target: ${savingsTarget.toFixed(1)}%; this is an assumption, not a measured saving.`,
+                `Current estimated consumption: ${totals.monthlyKwh.toFixed(2)} kWh/month.`,
+                `Expected consumption at target: ${expectedMonthlyKwh.toFixed(2)} kWh/month.`,
+                `Potential energy saving: ${monthlySavingsKwh.toFixed(2)} kWh/month; ${(monthlySavingsKwh * 12).toFixed(2)} kWh/year.`,
+                `At KES ${tariff.toFixed(2)}/kWh, potential cost saving is KES ${monthlySavingsCost.toFixed(2)}/month and KES ${(monthlySavingsCost * 12).toFixed(2)}/year.`,
+                ...categories.map(([category, values]) => {
+                    const categorySaving = totals.monthlyKwh ? monthlySavingsKwh * values.monthlyKwh / totals.monthlyKwh : 0;
+                    return `- ${category}: ${categorySaving.toFixed(2)} kWh/month estimated saving; ${(values.monthlyKwh - categorySaving).toFixed(2)} kWh/month expected; KES ${(categorySaving * tariff).toFixed(2)}/month.`;
+                }),
+                'Illustrative planning figures only. Actual savings depend on a measured baseline, operating conditions, implementation, and applicable tariffs.',
+                '',
+                '10. RECOMMENDATIONS AND ACTION PLAN',
+                ...recommendations,
+                'Implementation costs and payback periods were not provided and are not estimated.',
+                '',
+                '11. CONCLUSION',
+                `The inventory-based estimate is ${totals.monthlyKwh.toFixed(2)} kWh/month. Verify inventory and energy use against utility bills and site measurements, then prioritize high-consumption loads and validate the savings scenario before implementation.`,
+                '',
+                '12. APPENDICES',
+                `A. Equipment inventory: ${inventory.length} item(s) in the Audit Report table.`,
+                `B. Historical bills: ${historical.length} month(s) entered.`,
+                `C. Audit photographs: ${(record.photos || []).length} photo(s) attached below.`,
+                'D. Calculation basis: daily kWh = watts × quantity × hours/day ÷ 1,000; monthly estimate = daily estimate × 30; annualized estimate = monthly estimate × 12.',
+                '',
+                'AI DRAFT NOTICE',
+                'This locally generated draft is based only on data entered in this browser. Check inputs against bills and site measurements. Recommendations and potential savings require auditor review; power factor, measured maximum demand, and actual equipment efficiency were not assessed.'
+            ].join('\n');
+
+            record.historicalData = historicalData;
+            record.photos = auditPhotos;
+            record.facilityInfo = { ...facilityInfo };
+            record.report = report;
+            record.reportGeneratedAt = generatedAt.toISOString();
+            saveAudits();
+            updateAuditReportDisplay();
+        }
+
+        function updateAuditReportDisplay() {
+            const report = document.getElementById('aiReportContent');
+            if (!report) return;
+            const record = getCurrentAudit(false);
+            report.textContent = record && record.report
+                ? record.report
+                : 'Select a facility and add equipment, then generate an audit report.';
+            const reportPhotos = document.getElementById('reportPhotoGallery');
+            if (reportPhotos) {
+                reportPhotos.innerHTML = '';
+                (record && record.photos ? record.photos : []).forEach(photo => {
+                    const image = document.createElement('img');
+                    image.className = 'report-photo';
+                    image.src = photo.url || photo.dataUrl || '';
+                    image.alt = photo.name || 'Audit photo';
+                    reportPhotos.appendChild(image);
+                });
+            }
+        }
+
+        function renderInventoryTable() {
+            const tbody = document.getElementById('inventoryBody');
+            tbody.innerHTML = '';
+
+            if (inventory.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="10" class="empty-state">No equipment added yet. Add equipment from the Facilities tab.</td>
+                    </tr>`;
+                return;
+            }
+
+            inventory.forEach(item => {
+                const tr = document.createElement('tr');
+                const values = [
+                    item.category || 'General',
+                    item.name,
+                    `${item.watts} W`,
+                    item.qty,
+                    `${item.hours} hrs`,
+                    item.dailyKwh.toFixed(2),
+                    item.monthlyKwh.toFixed(2),
+                    item.monthlyCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+                    item.monthlyCarbon.toFixed(2)
+                ];
+                values.forEach((value, index) => {
+                    const cell = document.createElement('td');
+                    cell.textContent = value;
+                    if (index === 0) {
+                        const badge = document.createElement('span');
+                        badge.className = 'badge-pill';
+                        badge.textContent = value;
+                        cell.textContent = '';
+                        cell.appendChild(badge);
+                    }
+                    if (index === 1 || index === 7) {
+                        const strong = document.createElement('strong');
+                        strong.textContent = value;
+                        cell.textContent = '';
+                        cell.appendChild(strong);
+                    }
+                    tr.appendChild(cell);
+                });
+                const actionCell = document.createElement('td');
+                const deleteButton = document.createElement('button');
+                deleteButton.className = 'btn-delete';
+                deleteButton.textContent = 'Delete';
+                deleteButton.addEventListener('click', () => deleteItem(item.id));
+                actionCell.appendChild(deleteButton);
+                tr.appendChild(actionCell);
+                tbody.appendChild(tr);
+            });
+        }
+
+        function updateCharts() {
+            const labels = inventory.map(i => i.name);
+            const costData = inventory.map(i => i.monthlyCost);
+
+            if (barChartInstance) barChartInstance.destroy();
+
+            const canvas = document.getElementById('barChart');
+            if (!canvas) return;
+            if (typeof Chart === 'undefined') {
+                showChartUnavailable(canvas);
+                console.error('Chart.js is unavailable; the equipment chart cannot be rendered.');
+                return;
+            }
+            canvas.style.display = 'block';
+            const fallback = canvas.parentElement.querySelector('.chart-unavailable');
+            if (fallback) fallback.remove();
+            const ctxBar = canvas.getContext('2d');
+
+            barChartInstance = new Chart(ctxBar, {
+                type: 'bar',
+                data: {
+                    labels: labels.length ? labels : ['No Equipment Data'],
+                    datasets: [{
+                        label: 'Monthly Cost (KES)',
+                        data: costData.length ? costData : [0],
+                        backgroundColor: '#04e617',
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Monthly Operating Cost per Equipment (KES)',
+                            color: '#e2e8f0',
+                            font: { size: 14, weight: 'bold' }
+                        },
+                        legend: { display: false }
+                    },
+                    scales: {
+                        x: { ticks: { color: '#a0aec0', font: { size: 11 } }, grid: { display: false } },
+                        y: { ticks: { color: '#a0aec0', font: { size: 11 } }, grid: { color: '#2d3748' } }
+                    }
+                }
+            });
+        }
+
+        function showChartUnavailable(canvas) {
+            canvas.style.display = 'none';
+            let fallback = canvas.parentElement.querySelector('.chart-unavailable');
+            if (!fallback) {
+                fallback = document.createElement('p');
+                fallback.className = 'chart-unavailable';
+                fallback.textContent = 'Chart unavailable. The audit data and totals are still available.';
+                canvas.parentElement.appendChild(fallback);
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            init3DLogos();
+            checkSession();
+            handleCategoryChange();
+        });
+    </script>
+    <script src="api-config.js"></script>
+    <script src="client.js"></script>
+</body>
+</html>
