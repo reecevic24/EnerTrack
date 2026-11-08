@@ -38,6 +38,10 @@ layout and client-side energy-report presentation remain in `index.html`.
    npm start
    ```
 
+   `npm start` also runs the tracked database migrations automatically before the server
+   starts. If a migration fails, the server will not start, and the migration error is
+   printed to the deployment logs.
+
    Browse to `http://localhost:3000`. The first registered account can claim administrator
    access once; subsequent role changes require an administrator.
 
