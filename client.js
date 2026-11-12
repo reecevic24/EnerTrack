@@ -4,6 +4,7 @@
     const apiBase = String(window.ENERTRACK_API_BASE_URL || '').replace(/\/$/, '');
     let accountCache = [];
     let administratorExists = false;
+    let canClaimAdministrator = false;
     let auditSaveQueue = Promise.resolve();
     let auditSaveError = null;
     let pendingAuditSaves = 0;
@@ -208,6 +209,7 @@
         await loadAuditorComments();
         const setup = await apiRequest('/auth/setup-status');
         administratorExists = setup.adminExists;
+        canClaimAdministrator = setup.canClaimAdmin;
         await reloadAccountCache();
         try {
             const oldUsers = JSON.parse(localStorage.getItem('g12_audit_users') || '{}');
@@ -502,9 +504,12 @@
         } else if (administratorExists) {
             hint.textContent = 'This profile can submit audits and track administrator review status.';
             claim.style.display = 'none';
-        } else {
-            hint.textContent = 'No administrator is set up yet. Set up the first administrator to enable audit review.';
+        } else if (canClaimAdministrator) {
+            hint.textContent = 'No administrator is set up yet. This initial account can set up the first administrator.';
             claim.style.display = 'inline-block';
+        } else {
+            hint.textContent = 'No administrator is set up yet. The initial administrator must be configured before additional accounts are registered.';
+            claim.style.display = 'none';
         }
     };
 
@@ -514,6 +519,7 @@
             const result = await apiRequest('/auth/claim-admin', { method: 'POST' });
             setCurrentUser(result.user);
             administratorExists = true;
+            canClaimAdministrator = false;
             await reloadAccountCache();
             renderProfiles();
             alert('Administrator access is now active for this account.');

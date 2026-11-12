@@ -204,7 +204,7 @@
 
         .campus-img {
             width: 100%;
-            height: 260px;
+            height: clamp(180px, 22vw, 300px);
             object-fit: cover;
             display: block;
         }
@@ -1146,7 +1146,6 @@
             .history-entry, .submission-equipment { grid-template-columns: 1fr 1fr; }
             .submission-equipment { grid-template-columns: 1fr 1fr; }
             .btn-calc { grid-column: span 1; }
-            .campus-img { height: 180px; }
             .hero-overlay { flex-direction: column; align-items: flex-start; }
             .chart-box-single { height: 280px; }
             .tariff-setting { flex-direction: column; align-items: stretch; }
@@ -1281,7 +1280,7 @@
         <!-- DASHBOARD TAB -->
         <div id="pageDashboard" class="page-view active">
             <section class="hero-banner">
-                <img src="Moi-University(1).jpg" alt="Moi University Main Campus" class="campus-img" onerror="this.src='https://placehold.co/1000x260/1a202c/e2e8f0?text=Moi+University+Main+Campus'">
+                <img src="moi-university-campus.jpeg" alt="Moi University Main Campus" class="campus-img" onerror="this.src='https://placehold.co/1000x260/1a202c/e2e8f0?text=Moi+University+Main+Campus'">
                 <div class="hero-overlay">
                     <div class="hero-title">Moi University Energy Tracking</div>
                     <div class="hero-badge">EnerTrack</div>
@@ -1616,7 +1615,7 @@
             </section>
             <section id="adminAccountsPanel" class="card-panel" style="display: none;">
                 <h4>🛡️ Administrator: Auditor accounts</h4>
-                <p class="facility-hint">Promote trusted accounts to administrator or return them to auditor access.</p>
+                <p class="facility-hint">New accounts can sign in as auditors. Only an administrator can approve administrator access or return an account to auditor access.</p>
                 <div id="accountList" class="submission-list"></div>
             </section>
             <section id="adminReviewPanel" class="card-panel" style="display: none;">
@@ -2215,7 +2214,7 @@
                 description.textContent = `${account.name} · ${account.email} · ${account.role === 'admin' ? 'Administrator' : 'Auditor'}`;
                 const button = document.createElement('button');
                 button.className = 'btn-action';
-                button.textContent = account.role === 'admin' ? 'Make auditor' : 'Promote to admin';
+                button.textContent = account.role === 'admin' ? 'Return to auditor' : 'Approve as administrator';
                 button.disabled = account.email === currentUser.email && account.role === 'admin';
                 button.addEventListener('click', () => {
                     const nextRole = account.role === 'admin' ? 'auditor' : 'admin';

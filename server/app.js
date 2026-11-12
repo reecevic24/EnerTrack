@@ -92,6 +92,9 @@ if (fs.existsSync(frontendPath)) {
     app.get(['/', '/index.html'], (req, res) => res.sendFile(frontendPath));
     app.get('/client.js', (req, res) => res.sendFile(path.resolve(__dirname, '..', 'client.js')));
     app.get('/api-config.js', (req, res) => res.sendFile(path.resolve(__dirname, '..', 'api-config.js')));
+    app.get('/moi-university-campus.jpeg', (req, res) =>
+        res.sendFile(path.resolve(__dirname, '..', 'moi-university-campus.jpeg'))
+    );
 }
 
 app.use('/api', (req, res) => res.status(404).json({ error: 'API route not found.' }));

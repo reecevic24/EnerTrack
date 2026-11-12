@@ -42,8 +42,11 @@ layout and client-side energy-report presentation remain in `index.html`.
    starts. If a migration fails, the server will not start, and the migration error is
    printed to the deployment logs.
 
-   Browse to `http://localhost:3000`. The first registered account can claim administrator
-   access once; subsequent role changes require an administrator.
+   Browse to `http://localhost:3000`. The first and only registered account can claim
+   administrator access once; complete this setup before registering other users. New
+   registrations are active auditor accounts and can sign in immediately. An administrator
+   must approve any change to administrator access. Audit submissions have a separate
+   administrator review queue and are excluded from university totals until approved.
 
 Existing users can sign in with their email address or registration number. Configure
 the SMTP settings in `.env` to enable password-reset email; without SMTP, the reset

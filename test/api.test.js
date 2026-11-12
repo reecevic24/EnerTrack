@@ -27,10 +27,11 @@ test.after(async () => {
 });
 
 test('serves the existing frontend and its API bridge', async () => {
-    const [page, client, config] = await Promise.all([
+    const [page, client, config, campusImage] = await Promise.all([
         fetch(baseUrl),
         fetch(`${baseUrl}/client.js`),
-        fetch(`${baseUrl}/api-config.js`)
+        fetch(`${baseUrl}/api-config.js`),
+        fetch(`${baseUrl}/moi-university-campus.jpeg`)
     ]);
     assert.equal(page.status, 200);
     const pageText = await page.text();
@@ -40,6 +41,9 @@ test('serves the existing frontend and its API bridge', async () => {
     assert.match(pageText, /id="dashboardAuditCount"/);
     assert.match(pageText, /id="dashboardRecentAudits"/);
     assert.match(pageText, /id="dashboardReports"/);
+    assert.match(pageText, /src="moi-university-campus\.jpeg"[^>]*class="campus-img"/);
+    assert.match(pageText, /height:\s*clamp\(180px,\s*22vw,\s*300px\)/);
+    assert.match(pageText, /Only an administrator can approve administrator access/);
     assert.doesNotMatch(pageText, /id="floorArea"|id="buildingType"/);
     assert.match(pageText, /id="authorName"[^>]*readonly/);
     assert.match(pageText, /Enter email or registration number/);
@@ -50,6 +54,9 @@ test('serves the existing frontend and its API bridge', async () => {
     assert.equal(client.status, 200);
     assert.match(await client.text(), /apiRequest\('\/auth\/login',/);
     assert.equal(config.status, 200);
+    assert.equal(campusImage.status, 200);
+    assert.match(campusImage.headers.get('content-type'), /image\/jpeg/);
+    assert.ok((await campusImage.arrayBuffer()).byteLength > 0);
 });
 
 test('leaves anonymous sessions unauthenticated and protects private endpoints', async () => {
@@ -62,6 +69,16 @@ test('leaves anonymous sessions unauthenticated and protects private endpoints',
         assert.equal(response.status, 401, `${route} requires a signed-in session`);
         assert.match((await response.json()).error, /log in/i);
     }
+
+    const claimAdmin = await fetch(`${baseUrl}/api/auth/claim-admin`, { method: 'POST' });
+    assert.equal(claimAdmin.status, 401, 'initial administrator setup requires a signed-in account');
+
+    const roleChange = await fetch(`${baseUrl}/api/admin/users/00000000-0000-4000-8000-000000000001/role`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role: 'admin' })
+    });
+    assert.equal(roleChange.status, 401, 'account role approval requires authentication');
 
     const deleteResponse = await fetch(`${baseUrl}/api/audits/00000000-0000-4000-8000-000000000001`, {
         method: 'DELETE'

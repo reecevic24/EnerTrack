@@ -47,23 +47,41 @@ router.get('/me', (req, res, next) => {
 
 router.get('/setup-status', async (req, res, next) => {
     try {
-        const result = await pool.query("SELECT EXISTS (SELECT 1 FROM users WHERE role = 'admin' AND is_active = true) AS admin_exists");
-        res.json({ adminExists: result.rows[0].admin_exists });
+        const result = await pool.query(
+            `SELECT EXISTS (SELECT 1 FROM users WHERE role = 'admin' AND is_active = true) AS admin_exists,
+                    count(*)::int AS user_count,
+                    COALESCE(bool_or(id = $1::uuid AND is_active = true), false) AS current_user_exists
+             FROM users`,
+            [req.session.user ? req.session.user.id : null]
+        );
+        const status = result.rows[0];
+        res.json({
+            adminExists: status.admin_exists,
+            canClaimAdmin: !status.admin_exists && status.user_count === 1 && status.current_user_exists
+        });
     } catch (error) {
         next(error);
     }
 });
 
 router.post('/register', async (req, res, next) => {
+    let client;
+    let transactionStarted = false;
     try {
         const input = registerSchema.parse(req.body);
         const passwordHash = await bcrypt.hash(input.password, 12);
-        const result = await pool.query(
-            `INSERT INTO users (full_name, registration_number, email, password_hash)
-             VALUES ($1, $2, $3, $4)
+        client = await pool.connect();
+        await client.query('BEGIN');
+        transactionStarted = true;
+        await client.query('SELECT pg_advisory_xact_lock($1)', [80421001]);
+        const result = await client.query(
+            `INSERT INTO users (full_name, registration_number, email, password_hash, role)
+             VALUES ($1, $2, $3, $4, 'auditor')
              RETURNING id, full_name, email, registration_number, role`,
             [input.name, input.regNo, input.email, passwordHash]
         );
+        await client.query('COMMIT');
+        transactionStarted = false;
         const user = publicUser(result.rows[0]);
         req.session.regenerate(error => {
             if (error) return next(error);
@@ -74,8 +92,11 @@ router.post('/register', async (req, res, next) => {
             });
         });
     } catch (error) {
+        if (transactionStarted) await client.query('ROLLBACK');
         if (error.code === '23505') return res.status(409).json({ error: 'That email or registration number is already registered.' });
         next(error);
+    } finally {
+        if (client) client.release();
     }
 });
 
@@ -125,10 +146,18 @@ router.post('/claim-admin', requireAuth, async (req, res, next) => {
     try {
         await client.query('BEGIN');
         await client.query('SELECT pg_advisory_xact_lock($1)', [80421001]);
-        const count = await client.query("SELECT count(*)::int AS count FROM users WHERE role = 'admin' AND is_active = true");
-        if (count.rows[0].count > 0) {
+        const setup = await client.query(
+            `SELECT count(*)::int AS user_count,
+                    (count(*) FILTER (WHERE role = 'admin' AND is_active = true))::int AS admin_count
+             FROM users`
+        );
+        if (setup.rows[0].admin_count > 0) {
             await client.query('ROLLBACK');
             return res.status(409).json({ error: 'An administrator account has already been set up.' });
+        }
+        if (setup.rows[0].user_count !== 1) {
+            await client.query('ROLLBACK');
+            return res.status(409).json({ error: 'The initial administrator must be set up before additional accounts are registered.' });
         }
         const update = await client.query(
             "UPDATE users SET role = 'admin', updated_at = now() WHERE id = $1 AND is_active = true RETURNING id, full_name, email, registration_number, role",
