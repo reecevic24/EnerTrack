@@ -5,7 +5,10 @@ function toggleAuthView(view) {
 
     if (view === 'login') document.getElementById('loginFormView').style.display = 'block';
     else if (view === 'register') document.getElementById('registerFormView').style.display = 'block';
-    else if (view === 'forgot') document.getElementById('forgotFormView').style.display = 'block';
+    else if (view === 'forgot') {
+        document.getElementById('forgotFormView').style.display = 'block';
+        preparePasswordResetForm();
+    }
 }
 
 async function handleRegister() {
@@ -48,7 +51,7 @@ async function handleLogin() {
 }
 
 function handleResetPassword() {
-    alert('Password recovery is not configured. Please contact an EnerTrack administrator.');
+    toggleAuthView('forgot');
 }
 
 async function loginUser(user) {
@@ -99,7 +102,6 @@ async function checkSession() {
     if (new URLSearchParams(window.location.search).has('resetToken')) {
         document.getElementById('authOverlay').style.display = 'flex';
         toggleAuthView('forgot');
-        preparePasswordResetForm();
         return;
     }
     try {
@@ -110,39 +112,40 @@ async function checkSession() {
         document.getElementById('authOverlay').style.display = 'flex';
         reportApiError(error);
     }
+}
 
-    function preparePasswordResetForm() {
-        const hasToken = new URLSearchParams(window.location.search).has('resetToken');
-        document.getElementById('requestPasswordResetForm').style.display = hasToken ? 'none' : 'block';
-        document.getElementById('completePasswordResetForm').style.display = hasToken ? 'block' : 'none';
+function preparePasswordResetForm() {
+    const hasToken = new URLSearchParams(window.location.search).has('resetToken');
+    document.getElementById('requestPasswordResetForm').style.display = hasToken ? 'none' : 'block';
+    document.getElementById('completePasswordResetForm').style.display = hasToken ? 'block' : 'none';
+    document.getElementById('resetPasswordGroup').style.display = hasToken ? 'flex' : 'none';
+}
+
+async function requestPasswordReset() {
+    try {
+        const { message } = await apiRequest('/api/auth/password-reset/request', {
+            method: 'POST',
+            body: JSON.stringify({ email: normalizeEmail(document.getElementById('resetEmail').value) })
+        });
+        alert(message);
+    } catch (error) {
+        reportApiError(error);
     }
+}
 
-    async function requestPasswordReset() {
-        try {
-            const { message } = await apiRequest('/api/auth/password-reset/request', {
-                method: 'POST',
-                body: JSON.stringify({ email: normalizeEmail(document.getElementById('resetEmail').value) })
-            });
-            alert(message);
-        } catch (error) {
-            reportApiError(error);
-        }
-    }
-
-    async function completePasswordReset() {
-        const token = new URLSearchParams(window.location.search).get('resetToken');
-        const password = document.getElementById('resetPassword').value;
-        try {
-            const { message } = await apiRequest('/api/auth/password-reset/complete', {
-                method: 'POST',
-                body: JSON.stringify({ token, password })
-            });
-            window.history.replaceState({}, document.title, window.location.pathname);
-            toggleAuthView('login');
-            alert(message);
-        } catch (error) {
-            reportApiError(error);
-        }
+async function completePasswordReset() {
+    const token = new URLSearchParams(window.location.search).get('resetToken');
+    const password = document.getElementById('resetPassword').value;
+    try {
+        const { message } = await apiRequest('/api/auth/password-reset/complete', {
+            method: 'POST',
+            body: JSON.stringify({ token, password })
+        });
+        window.history.replaceState({}, document.title, window.location.pathname);
+        toggleAuthView('login');
+        alert(message);
+    } catch (error) {
+        reportApiError(error);
     }
 }
 
