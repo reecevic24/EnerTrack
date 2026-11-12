@@ -110,71 +110,6 @@ function updateUniversitySummary() {
         tbody.appendChild(row);
     }
 
-    async function loadPersonalDashboard() {
-        if (!currentUser) return;
-        try {
-            const { personal } = await apiRequest('/api/dashboard');
-            document.getElementById('dashboardAuditCount').textContent =
-                String(personal.totals.auditCount);
-
-            const recentContainer = document.getElementById('dashboardRecentAudits');
-            recentContainer.innerHTML = '';
-            if (!personal.recentAudits.length) {
-                recentContainer.textContent = 'No facility audits yet.';
-            } else {
-                personal.recentAudits.forEach(audit => {
-                    const row = document.createElement('div');
-                    row.className = 'submission-card';
-                    row.textContent = `${audit.label} · ${audit.status} · ${new Date(audit.updatedAt).toLocaleString()}`;
-                    recentContainer.appendChild(row);
-                });
-            }
-
-            const reportsContainer = document.getElementById('dashboardReports');
-            reportsContainer.innerHTML = '';
-            const reports = personal.reports.filter(audit => audit.reportGenerated);
-            if (!reports.length) {
-                reportsContainer.textContent = 'No reports generated yet.';
-                return;
-            }
-            reports.forEach(audit => {
-                const button = document.createElement('button');
-                button.type = 'button';
-                button.className = 'btn-action';
-                button.textContent = `Download ${audit.label} report`;
-                button.addEventListener('click', () => downloadDashboardReport(audit.id, audit.label));
-                reportsContainer.appendChild(button);
-            });
-        } catch (error) {
-            reportApiError(error);
-        }
-    }
-
-    async function downloadDashboardReport(auditId, label) {
-        try {
-            const response = await fetch(
-                `${API_BASE}/api/audits/${encodeURIComponent(auditId)}/report.pdf`,
-                { credentials: 'include' }
-            );
-            if (!response.ok) {
-                let message = `Request failed (${response.status}).`;
-                try {
-                    const body = await response.json();
-                    if (body.error) message = body.error;
-                } catch {}
-                throw new Error(message);
-            }
-            const downloadUrl = URL.createObjectURL(await response.blob());
-            const link = document.createElement('a');
-            link.href = downloadUrl;
-            link.download = `${label.replace(/[^a-z0-9_-]+/gi, '-')}-audit-report.pdf`;
-            link.click();
-            URL.revokeObjectURL(downloadUrl);
-        } catch (error) {
-            reportApiError(error);
-        }
-    }
-
     const canvas = document.getElementById('universityChart');
     if (universityChartInstance) universityChartInstance.destroy();
     if (canvas && typeof Chart !== 'undefined') {
@@ -205,5 +140,70 @@ function updateUniversitySummary() {
         });
     } else if (canvas) {
         showChartUnavailable(canvas);
+    }
+}
+
+async function loadPersonalDashboard() {
+    if (!currentUser) return;
+    try {
+        const { personal } = await apiRequest('/api/dashboard');
+        document.getElementById('dashboardAuditCount').textContent =
+            String(personal.totals.auditCount);
+
+        const recentContainer = document.getElementById('dashboardRecentAudits');
+        recentContainer.innerHTML = '';
+        if (!personal.recentAudits.length) {
+            recentContainer.textContent = 'No facility audits yet.';
+        } else {
+            personal.recentAudits.forEach(audit => {
+                const row = document.createElement('div');
+                row.className = 'submission-card';
+                row.textContent = `${audit.label} · ${audit.status} · ${new Date(audit.updatedAt).toLocaleString()}`;
+                recentContainer.appendChild(row);
+            });
+        }
+
+        const reportsContainer = document.getElementById('dashboardReports');
+        reportsContainer.innerHTML = '';
+        const reports = personal.reports.filter(audit => audit.reportGenerated);
+        if (!reports.length) {
+            reportsContainer.textContent = 'No reports generated yet.';
+            return;
+        }
+        reports.forEach(audit => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'btn-action';
+            button.textContent = `Download ${audit.label} report`;
+            button.addEventListener('click', () => downloadDashboardReport(audit.id, audit.label));
+            reportsContainer.appendChild(button);
+        });
+    } catch (error) {
+        reportApiError(error);
+    }
+}
+
+async function downloadDashboardReport(auditId, label) {
+    try {
+        const response = await fetch(
+            `${API_BASE}/api/audits/${encodeURIComponent(auditId)}/report.pdf`,
+            { credentials: 'include' }
+        );
+        if (!response.ok) {
+            let message = `Request failed (${response.status}).`;
+            try {
+                const body = await response.json();
+                if (body.error) message = body.error;
+            } catch {}
+            throw new Error(message);
+        }
+        const downloadUrl = URL.createObjectURL(await response.blob());
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+        link.download = `${label.replace(/[^a-z0-9_-]+/gi, '-')}-audit-report.pdf`;
+        link.click();
+        URL.revokeObjectURL(downloadUrl);
+    } catch (error) {
+        reportApiError(error);
     }
 }

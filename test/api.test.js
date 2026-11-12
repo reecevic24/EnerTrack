@@ -5,6 +5,7 @@ process.env.DATABASE_URL ||= 'postgres://enertrack:test@127.0.0.1:1/enertrack_te
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const vm = require('node:vm');
 process.env.FRONTEND_ORIGINS = 'https://enertrackmo.netlify.app';
 const app = require('../server/app');
 
@@ -64,6 +65,13 @@ test('serves the updated frontend, assets, and existing API bridge', async () =>
     assert.equal(campusImage.status, 200);
     assert.match(campusImage.headers.get('content-type'), /image\/jpeg/);
     assert.ok((await campusImage.arrayBuffer()).byteLength > 0);
+});
+
+test('exposes the personal dashboard loader to the sign-in flow', async () => {
+    const response = await fetch(`${baseUrl}/js/calculations.js`);
+    const context = {};
+    vm.runInNewContext(await response.text(), context);
+    assert.equal(typeof context.loadPersonalDashboard, 'function');
 });
 
 test('allows credentialed API requests from the deployed Netlify origin', async () => {
