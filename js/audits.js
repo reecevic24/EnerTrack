@@ -274,7 +274,6 @@ function selectHostelAudit() {
 
 function saveFacilityDetails() {
     facilityInfo.facilityLocation = document.getElementById('facilityLocation').value.trim();
-    facilityInfo.floorArea = document.getElementById('floorArea').value;
     if (currentUser) facilityInfo.authorName = currentUser.name;
     facilityInfo.energySources = document.getElementById('energySources').value.trim();
     facilityInfo.auditDate = document.getElementById('auditDate').value;
@@ -306,16 +305,11 @@ function loadActiveAudit() {
     historicalData = record && Array.isArray(record.historicalData) ? record.historicalData : [];
     auditPhotos = record && Array.isArray(record.photos) ? record.photos : [];
     document.getElementById('facilityLocation').value = facilityInfo.facilityLocation || '';
-    document.getElementById('floorArea').value = facilityInfo.floorArea || '';
     document.getElementById('authorName').value = facilityInfo.authorName || '';
     document.getElementById('energySources').value = facilityInfo.energySources || '';
     document.getElementById('auditDate').value = facilityInfo.auditDate || new Date().toISOString().slice(0, 10);
     document.getElementById('auditPurpose').value = facilityInfo.auditPurpose || '';
     document.getElementById('auditScope').value = facilityInfo.scope || '';
-    document.getElementById('auditFindings').value = record ? record.findings || '' : '';
-    document.getElementById('auditRecommendations').value = record && Array.isArray(record.recommendations)
-        ? record.recommendations.join('\n')
-        : '';
     const energySettings = record && record.energySettings
         ? { ...createDefaultEnergySettings(), ...record.energySettings }
         : createDefaultEnergySettings();
@@ -326,21 +320,6 @@ function loadActiveAudit() {
     updateFacilityLabels();
     calculateAll();
     updateAuditReportDisplay();
-}
-
-function saveAuditAnalysis() {
-    const record = getCurrentAudit();
-    if (!record) return;
-    record.findings = document.getElementById('auditFindings').value.trim();
-    record.recommendations = document.getElementById('auditRecommendations').value
-        .split(/\r?\n/)
-        .map(item => item.trim())
-        .filter(Boolean);
-    record.report = '';
-    record.reportGeneratedAt = '';
-    saveAudits();
-    updateAuditReportDisplay();
-    updateSubmissionStatus();
 }
 
 function updateFacilityLabels() {

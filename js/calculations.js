@@ -88,6 +88,10 @@ function updateUniversitySummary() {
     document.getElementById('dashboardUniversityKwh').textContent = `${format(totals.kwh)} kWh`;
     document.getElementById('dashboardUniversityCost').textContent = `KES ${format(totals.cost)}`;
     document.getElementById('dashboardFacilityCount').textContent = `${auditedCount} / ${facilityNames.length}`;
+    document.getElementById('dashboardFacilityCount').closest('.box').hidden =
+        !!currentUser && currentUser.role !== 'admin';
+    document.getElementById('dashboardAuditCountLabel').textContent =
+        currentUser && currentUser.role !== 'admin' ? 'My submitted audits' : 'Facility audits';
 
     const tbody = document.getElementById('universityFacilityBody');
     tbody.innerHTML = '';
@@ -147,8 +151,12 @@ async function loadPersonalDashboard() {
     if (!currentUser) return;
     try {
         const { personal } = await apiRequest('/api/dashboard');
+        const submittedAuditCount = sharedSubmissions.filter(item =>
+            normalizeEmail(item.auditorEmail) === normalizeEmail(currentUser.email) &&
+            item.status !== 'draft'
+        ).length;
         document.getElementById('dashboardAuditCount').textContent =
-            String(personal.totals.auditCount);
+            String(isAdministrator() ? personal.totals.auditCount : submittedAuditCount);
 
         const recentContainer = document.getElementById('dashboardRecentAudits');
         recentContainer.innerHTML = '';

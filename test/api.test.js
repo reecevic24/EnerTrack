@@ -40,14 +40,15 @@ test('serves the updated frontend, assets, and existing API bridge', async () =>
     assert.equal(page.status, 200);
     const pageText = await page.text();
     assert.match(pageText, /EnerTrack/);
-    assert.match(pageText, /id="auditFindings"/);
-    assert.match(pageText, /id="auditRecommendations"/);
+    assert.doesNotMatch(pageText, /id="auditFindings"/);
+    assert.doesNotMatch(pageText, /id="auditRecommendations"/);
     assert.match(pageText, /id="dashboardAuditCount"/);
     assert.match(pageText, /id="dashboardRecentAudits"/);
     assert.match(pageText, /id="dashboardReports"/);
     assert.match(pageText, /src="moi-university-campus\.jpeg"[^>]*class="campus-img"/);
     assert.match(pageText, /Only an administrator can approve administrator access/);
-    assert.match(pageText, /id="floorArea"/);
+    assert.doesNotMatch(pageText, /id="floorArea"/);
+    assert.match(pageText, /id="regPass"[^>]*minlength="6"/);
     assert.match(pageText, /id="authorName"[^>]*readonly/);
     assert.match(pageText, /Enter registered email or Reg No\.\/ID/);
     assert.match(pageText, /id="loginFormView" style="display: none;">/);
@@ -72,6 +73,35 @@ test('exposes the personal dashboard loader to the sign-in flow', async () => {
     const context = {};
     vm.runInNewContext(await response.text(), context);
     assert.equal(typeof context.loadPersonalDashboard, 'function');
+});
+
+test('shows auditors only their own submitted audits on the dashboard', async () => {
+    const response = await fetch(`${baseUrl}/js/calculations.js`);
+    const elements = new Map();
+    const context = {
+        currentUser: { email: 'auditor@example.com', role: 'auditor' },
+        sharedSubmissions: [
+            { auditorEmail: 'auditor@example.com', status: 'pending' },
+            { auditorEmail: 'AUDITOR@example.com', status: 'approved' },
+            { auditorEmail: 'auditor@example.com', status: 'draft' },
+            { auditorEmail: 'another@example.com', status: 'pending' }
+        ],
+        normalizeEmail: email => String(email || '').trim().toLowerCase(),
+        apiRequest: async () => ({
+            personal: { totals: { auditCount: 99 }, recentAudits: [], reports: [] }
+        }),
+        document: {
+            getElementById(id) {
+                if (!elements.has(id)) elements.set(id, { textContent: '', innerHTML: '' });
+                return elements.get(id);
+            }
+        },
+        reportApiError: error => { throw error; }
+    };
+    context.isAdministrator = () => context.currentUser.role === 'admin';
+    vm.runInNewContext(await response.text(), context);
+    await context.loadPersonalDashboard();
+    assert.equal(elements.get('dashboardAuditCount').textContent, '2');
 });
 
 test('allows credentialed API requests from the deployed Netlify origin', async () => {
@@ -132,4 +162,35 @@ test('rejects malformed login data before querying PostgreSQL', async () => {
     });
     assert.equal(response.status, 400);
     assert.match((await response.json()).error, /invalid/i);
+});
+
+test('rejects registration passwords shorter than six characters before querying PostgreSQL', async () => {
+    const response = await fetch(`${baseUrl}/api/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            name: 'Test Auditor',
+            regNo: 'TEST-001',
+            email: 'test-auditor@example.com',
+            password: 'abcde'
+        })
+    });
+    assert.equal(response.status, 400);
+    assert.match((await response.json()).error, /invalid/i);
+});
+
+test('accepts a six-character registration password at the validation boundary', async () => {
+    const response = await fetch(`${baseUrl}/api/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            name: 'Test Auditor',
+            regNo: 'TEST-002',
+            email: 'not-an-email',
+            password: 'abcdef'
+        })
+    });
+    assert.equal(response.status, 400);
+    const body = await response.json();
+    assert.deepEqual(body.details.map(issue => issue.field), ['email']);
 });

@@ -414,7 +414,7 @@
 @media (max-width: 880px) {
     .header-container { flex-wrap: wrap; }
     .brand, .user-pill { flex: 0 0 auto; }
-    .nav-tabs { order: 3; width: 100%; justify-content: center; margin-top: 0.5rem; }
+    .nav-tabs { order: 3; width: 100%; justify-content: flex-start; margin-top: 0.5rem; }
 }
 
 @media (max-width: 600px) {

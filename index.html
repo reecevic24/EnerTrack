@@ -53,7 +53,7 @@
                     </div>
                     <div class="form-group" style="margin-bottom: 1.25rem;">
                         <label>Password</label>
-                        <input type="password" id="regPass" placeholder="••••••••••••" minlength="12" autocomplete="new-password" required>
+                        <input type="password" id="regPass" placeholder="••••••" minlength="6" autocomplete="new-password" required>
                     </div>
                     <button type="submit" class="btn-calc" style="width: 100%;">Create Account</button>
                 </form>
@@ -162,7 +162,7 @@
             <section class="card-panel">
                 <h4>My audit activity</h4>
                 <div class="card-row university-kpis">
-                    <div class="box"><h4>Facility audits</h4><div class="box-value" id="dashboardAuditCount">0</div></div>
+                    <div class="box"><h4 id="dashboardAuditCountLabel">Facility audits</h4><div class="box-value" id="dashboardAuditCount">0</div></div>
                 </div>
                 <h5 style="margin-top: 1rem;">Recent audits</h5>
                 <div id="dashboardRecentAudits" class="submission-list">Sign in to view recent audits.</div>
@@ -216,7 +216,6 @@
                         <label for="facilityLocation">Location</label>
                         <input type="text" id="facilityLocation" placeholder="e.g. Main Campus" onchange="saveFacilityDetails()">
                     </div>
-                    <div class="form-group"><label for="floorArea">Floor area (m²)</label><input type="number" id="floorArea" min="0" step="any" placeholder="e.g. 2,400" onchange="saveFacilityDetails()"></div>
                     <div class="form-group">
                         <label for="authorName">Auditor Name</label>
                         <input type="text" id="authorName" placeholder="Filled from your account" readonly aria-readonly="true">
@@ -294,19 +293,6 @@
 
         <!-- AUDIT REPORT TAB -->
         <div id="pageAudit" class="page-view">
-            <section class="card-panel">
-                <h4>Energy audit findings and recommendations</h4>
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label for="auditFindings">Audit findings</label>
-                        <textarea id="auditFindings" rows="5" maxlength="10000" placeholder="Document site observations, issues, and opportunities." onchange="saveAuditAnalysis()"></textarea>
-                    </div>
-                    <div class="form-group">
-                        <label for="auditRecommendations">Energy-saving recommendations</label>
-                        <textarea id="auditRecommendations" rows="5" maxlength="10000" placeholder="Enter one actionable recommendation per line." onchange="saveAuditAnalysis()"></textarea>
-                    </div>
-                </div>
-            </section>
             <!-- FACILITY DETAILS BAR (included in print layout) -->
             <div class="facility-display-bar">
                 <div>Building: <span id="lblBuilding">Not Specified</span></div>
