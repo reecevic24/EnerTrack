@@ -154,6 +154,23 @@ test('keeps submitted recommendations available to reports after the entry field
     );
 });
 
+test('does not mark a submitted audit as changed when photo URLs are normalized locally', async () => {
+    const response = await fetch(`${baseUrl}/js/submissions.js`);
+    const context = {};
+    vm.runInNewContext(await response.text(), context);
+    const record = {
+        facilityInfo: { facilityLocation: 'Main Campus', auditDate: '2026-11-12' },
+        inventory: [{ category: 'Lighting', name: 'LED', watts: 30, qty: 4, hours: 8 }],
+        historicalData: [{ month: '2026-10', kwh: 100, cost: 1200 }],
+        photos: [{ id: 'photo-1', url: '/api/audits/photo-1', dataUrl: 'https://api.example/api/audits/photo-1' }]
+    };
+    const submission = { auditorSnapshot: context.createAuditorSnapshot(record) };
+
+    assert.equal(context.auditHasUnsubmittedChanges(record, submission), false);
+    record.photos[0].dataUrl = 'data:image/jpeg;base64,abc';
+    assert.equal(context.auditHasUnsubmittedChanges(record, submission), true);
+});
+
 test('exposes the personal dashboard loader to the sign-in flow', async () => {
     const response = await fetch(`${baseUrl}/js/calculations.js`);
     const context = {};

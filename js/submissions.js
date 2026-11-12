@@ -69,6 +69,15 @@ function auditHasUnsubmittedChanges(record, submission) {
         JSON.stringify(record.photos || []) !== JSON.stringify(snapshot.photos || []);
 }
 
+function createAuditorSnapshot(record) {
+    return {
+        facilityInfo: { ...record.facilityInfo },
+        inventory: record.inventory.map(item => ({ ...item })),
+        historicalData: record.historicalData.map(entry => ({ ...entry })),
+        photos: record.photos.map(photo => ({ ...photo }))
+    };
+}
+
 function isAuditLockedAsApproved(record) {
     const submission = findSubmissionForAudit(record);
     return submission?.status === 'approved' && !auditHasUnsubmittedChanges(record, submission);
@@ -228,12 +237,7 @@ async function submitCurrentAudit() {
         replaceSubmission({
             ...audit,
             auditKey: audit.key || audit.facilityId,
-            auditorSnapshot: {
-                facilityInfo: { ...audit.facilityInfo },
-                inventory: audit.inventory || [],
-                historicalData: audit.historicalData || [],
-                photos: audit.photos || []
-            }
+            auditorSnapshot: createAuditorSnapshot(record)
         });
         saveSharedSubmissions();
         clearAuditEntryFields();
