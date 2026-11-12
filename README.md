@@ -55,6 +55,28 @@ request endpoint returns a configuration error and cannot send email.
 Run the application checks with `npm test`. During local development, `npm run dev`
 restarts the server when backend files change.
 
+## Netlify, Render, and Neon deployment
+
+The Netlify site at `https://enertrackmo.netlify.app` selects the Render API at
+`https://enertrack-1.onrender.com` in `api-config.js`. Other hosts, including local
+development, keep using their own origin unless `window.ENERTRACK_API_BASE_URL` is
+explicitly set.
+
+Configure these values on the Render web service and redeploy or restart it after saving:
+
+| Variable | Value |
+|---|---|
+| `FRONTEND_ORIGINS` | `https://enertrackmo.netlify.app` (exact origin, no trailing slash) |
+| `SESSION_SAME_SITE` | `none` |
+| `NODE_ENV` | `production` |
+
+`SameSite=None` allows the browser to send the session cookie from the separate Netlify
+site to Render; production mode makes that cookie secure-only. Keep `DATABASE_URL` set to
+the Neon connection string on Render. The `/api/health` endpoint confirms database
+connectivity, but does not identify which database provider or instance is configured.
+Browser privacy settings that block third-party cookies can still prevent cross-site
+sessions; if that occurs, use a same-origin API proxy or custom domain arrangement.
+
 ## Configuration
 
 | Variable | Purpose |

@@ -5,6 +5,7 @@ process.env.DATABASE_URL ||= 'postgres://enertrack:test@127.0.0.1:1/enertrack_te
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
+process.env.FRONTEND_ORIGINS = 'https://enertrackmo.netlify.app';
 const app = require('../server/app');
 
 let server;
@@ -54,9 +55,32 @@ test('serves the existing frontend and its API bridge', async () => {
     assert.equal(client.status, 200);
     assert.match(await client.text(), /apiRequest\('\/auth\/login',/);
     assert.equal(config.status, 200);
+    assert.match(await config.text(), /https:\/\/enertrack-1\.onrender\.com/);
     assert.equal(campusImage.status, 200);
     assert.match(campusImage.headers.get('content-type'), /image\/jpeg/);
     assert.ok((await campusImage.arrayBuffer()).byteLength > 0);
+});
+
+test('allows credentialed API requests from the deployed Netlify origin', async () => {
+    const preflight = await fetch(`${baseUrl}/api/auth/login`, {
+        method: 'OPTIONS',
+        headers: {
+            Origin: 'https://enertrackmo.netlify.app',
+            'Access-Control-Request-Method': 'POST',
+            'Access-Control-Request-Headers': 'content-type'
+        }
+    });
+    assert.equal(preflight.status, 204);
+    assert.equal(preflight.headers.get('access-control-allow-origin'), 'https://enertrackmo.netlify.app');
+    assert.equal(preflight.headers.get('access-control-allow-credentials'), 'true');
+    assert.match(preflight.headers.get('access-control-allow-methods'), /POST/);
+
+    const session = await fetch(`${baseUrl}/api/auth/me`, {
+        headers: { Origin: 'https://enertrackmo.netlify.app' }
+    });
+    assert.equal(session.status, 200);
+    assert.equal(session.headers.get('access-control-allow-origin'), 'https://enertrackmo.netlify.app');
+    assert.equal(session.headers.get('access-control-allow-credentials'), 'true');
 });
 
 test('leaves anonymous sessions unauthenticated and protects private endpoints', async () => {
