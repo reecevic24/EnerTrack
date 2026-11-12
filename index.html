@@ -204,16 +204,16 @@
                     </div>
                     <div class="form-group">
                         <label for="facilityLocation">Location</label>
-                        <input type="text" id="facilityLocation" placeholder="e.g. Main Campus" onchange="saveFacilityDetails()">
+                        <input type="text" id="facilityLocation" placeholder="e.g. Main Campus" onchange="saveFacilityDetails()" required>
                     </div>
                     <div class="form-group">
                         <label for="authorName">Auditor Name</label>
-                        <input type="text" id="authorName" placeholder="Filled from your account" readonly aria-readonly="true">
+                        <input type="text" id="authorName" placeholder="Filled from your account" readonly aria-readonly="true" required>
                     </div>
-                    <div class="form-group"><label for="energySources">Energy sources</label><input type="text" id="energySources" placeholder="e.g. Grid electricity, solar, generator" onchange="saveFacilityDetails()"></div>
-                    <div class="form-group"><label for="auditDate">Date of audit</label><input type="date" id="auditDate" onchange="saveFacilityDetails()"></div>
-                    <div class="form-group"><label for="auditPurpose">Audit purpose</label><textarea id="auditPurpose" rows="2" placeholder="Why is this audit being conducted?" onchange="saveFacilityDetails()"></textarea></div>
-                    <div class="form-group"><label for="auditScope">Audit scope and systems covered</label><textarea id="auditScope" rows="2" placeholder="Areas, equipment, and systems covered" onchange="saveFacilityDetails()"></textarea></div>
+                    <div class="form-group"><label for="energySources">Energy sources</label><input type="text" id="energySources" placeholder="e.g. Grid electricity, solar, generator" onchange="saveFacilityDetails()" required></div>
+                    <div class="form-group"><label for="auditDate">Date of audit</label><input type="date" id="auditDate" onchange="saveFacilityDetails()" required></div>
+                    <div class="form-group"><label for="auditPurpose">Audit purpose</label><textarea id="auditPurpose" rows="2" placeholder="Why is this audit being conducted?" onchange="saveFacilityDetails()" required></textarea></div>
+                    <div class="form-group"><label for="auditScope">Audit scope and systems covered</label><textarea id="auditScope" rows="2" placeholder="Areas, equipment, and systems covered" onchange="saveFacilityDetails()" required></textarea></div>
                 </div>
             </section>
 
@@ -276,8 +276,8 @@
             </section>
             <section class="card-panel">
                 <h4>📨 Auditor submission</h4>
-                <p id="submissionStatus" class="facility-hint">Submit this facility audit for administrator review and approval.</p>
-                <button class="btn-action" onclick="submitCurrentAudit()">Submit facility audit for approval</button>
+                <p id="submissionStatus" class="facility-hint">Complete facility details and add equipment, then enter recommendations before submitting for approval.</p>
+                <button class="btn-action" type="button" onclick="beginAuditRecommendations()">Add recommendations</button>
             </section>
         </div>
 
@@ -384,7 +384,7 @@
             </section>
 
             <!-- PRINT ITEM 3: AUDITOR RECOMMENDATIONS PANEL -->
-            <section class="auditor-comments-panel">
+            <section id="auditorRecommendationsPanel" class="auditor-comments-panel" tabindex="-1">
                 <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #04e617; padding-bottom: 0.5rem; margin-bottom: 0.5rem;">
                     <h4 style="border: none; padding: 0; margin: 0; color: #ffbb00; font-size: 1.15rem;">📝 Auditor Recommendations by Equipment Category</h4>
                     <div id="saveIndicator" class="save-indicator">✓ Auto-saved</div>
@@ -396,6 +396,10 @@
                 <div id="auditorCommentsContainer" class="auditor-comments-grid">
                 </div>
                 <button class="btn-action btn-add-load-box" type="button" onclick="addCustomLoadBox()">＋ Add equipment category</button>
+                <div id="recommendationSubmitSection" class="recommendation-submit-section" hidden>
+                    <p id="recommendationSubmitHint" class="facility-hint" aria-live="polite">Enter at least one equipment recommendation to submit this audit.</p>
+                    <button id="submitAuditForApprovalButton" class="btn-action" type="button" onclick="submitCurrentAudit()">Submit facility audit for approval</button>
+                </div>
             </section>
 
             <section class="card-panel ecm-card-panel">

@@ -78,9 +78,7 @@ function generateAuditReport() {
         `${facility.label}: ${format(facility.kwh)} kWh/month, ${facility.items} equipment item(s), KES ${format(facility.cost)}/month`
     );
     const photoLines = auditPhotos.map(photo => photo.name || 'Unnamed site photo');
-    const recommendationLines = loadRecommendations
-        .filter(recommendation => recommendation.text && recommendation.text.trim())
-        .map(recommendation => `${recommendation.loadType || 'Equipment category'}: ${recommendation.text.trim()}`);
+    const recommendationLines = getAuditRecommendationLines(record);
     const categoryLines = categories.length
         ? categories.map(([category, values]) => {
             const share = totals.monthlyKwh ? values.monthlyKwh / totals.monthlyKwh * 100 : 0;
@@ -190,6 +188,16 @@ function generateAuditReport() {
     record.reportGeneratedAt = new Date().toISOString();
     saveAudits();
     updateAuditReportDisplay();
+}
+
+function getAuditRecommendationLines(record) {
+    const savedRecommendations = Array.isArray(record && record.recommendations)
+        ? record.recommendations.map(recommendation => String(recommendation).trim()).filter(Boolean)
+        : [];
+    if (savedRecommendations.length) return savedRecommendations;
+    return loadRecommendations
+        .filter(recommendation => recommendation.text && recommendation.text.trim())
+        .map(recommendation => `${recommendation.loadType || 'Equipment category'}: ${recommendation.text.trim()}`);
 }
 
 function generateHostelsAggregateReport() {
@@ -305,9 +313,12 @@ function generateHostelsAggregateReport() {
     const annualKwh = monthlyKwh * 12;
     const annualCost = monthlyCost * 12;
     const averageOperatingHours = totalUnits ? weightedOperatingHoursTotal / totalUnits : 0;
-    const recommendations = loadRecommendations
-        .filter(recommendation => recommendation.text && recommendation.text.trim())
-        .map(recommendation => `${recommendation.loadType || 'Equipment category'}: ${recommendation.text.trim()}`);
+    const savedRecommendations = hostelAudits.flatMap(audit =>
+        Array.isArray(audit.recommendations) ? audit.recommendations : []
+    ).map(recommendation => String(recommendation).trim()).filter(Boolean);
+    const recommendations = savedRecommendations.length
+        ? [...new Set(savedRecommendations)]
+        : getAuditRecommendationLines(null);
     const actions = [];
     if (categories.length) {
         actions.push(`Prioritize ${categories[0][0]} across the hostels; it represents ${format(monthlyKwh ? categories[0][1].monthlyKwh / monthlyKwh * 100 : 0)}% of modeled hostel energy.`);

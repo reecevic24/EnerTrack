@@ -51,6 +51,9 @@ test('serves the updated frontend, assets, and existing API bridge', async () =>
     assert.match(pageText, /id="seeAdminsButton"/);
     assert.match(pageText, /id="approveAuditsButton"/);
     assert.match(pageText, /id="auditStatusButton"/);
+    assert.match(pageText, /onclick="beginAuditRecommendations\(\)">Add recommendations/);
+    assert.match(pageText, /id="auditorRecommendationsPanel"/);
+    assert.match(pageText, /id="submitAuditForApprovalButton"/);
     assert.doesNotMatch(pageText, /id="floorArea"/);
     assert.match(pageText, /id="regPass"[^>]*minlength="6"/);
     assert.match(pageText, /id="authorName"[^>]*readonly/);
@@ -70,6 +73,85 @@ test('serves the updated frontend, assets, and existing API bridge', async () =>
     assert.equal(campusImage.status, 200);
     assert.match(campusImage.headers.get('content-type'), /image\/jpeg/);
     assert.ok((await campusImage.arrayBuffer()).byteLength > 0);
+});
+
+test('requires complete facility details and equipment before auditor recommendations', async () => {
+    const response = await fetch(`${baseUrl}/js/submissions.js`);
+    const values = new Map([
+        ['facilitySelector', 'Science Block'],
+        ['facilityLocation', 'Main Campus'],
+        ['authorName', 'Test Auditor'],
+        ['energySources', 'Grid electricity'],
+        ['auditDate', '2026-11-12'],
+        ['auditPurpose', 'Energy efficiency review'],
+        ['auditScope', 'Lighting and HVAC']
+    ]);
+    const elements = new Map();
+    const context = {
+        selectedFacility: 'Science Block',
+        selectedHostelName: '',
+        inventory: [{ category: 'Lighting', name: 'LED', watts: 30, qty: 4, hours: 8 }],
+        document: {
+            getElementById(id) {
+                if (!elements.has(id)) elements.set(id, {
+                    value: values.get(id) || '',
+                    focus() {}
+                });
+                return elements.get(id);
+            }
+        }
+    };
+    vm.runInNewContext(await response.text(), context);
+
+    assert.equal(context.getAuditReadinessIssue(), null);
+    elements.get('auditScope').value = '';
+    assert.equal(context.getAuditReadinessIssue().message, 'Enter the audit scope and systems covered.');
+    elements.get('auditScope').value = 'Lighting and HVAC';
+    context.inventory = [];
+    assert.equal(context.getAuditReadinessIssue().message, 'Add at least one complete equipment item before continuing.');
+});
+
+test('clears facility, equipment, and recommendation inputs after submission', async () => {
+    const response = await fetch(`${baseUrl}/js/submissions.js`);
+    const elements = new Map();
+    const inputIds = [
+        'facilityLocation', 'authorName', 'energySources', 'auditDate', 'auditPurpose', 'auditScope',
+        'hostelName', 'equipment', 'wattage', 'availableNumber', 'operatingHours',
+        'historyMonth', 'historyKwh', 'historyCost', 'auditPhotos'
+    ];
+    inputIds.forEach(id => elements.set(id, { value: 'entered value' }));
+    let renderedRecommendations = 0;
+    const context = {
+        loadRecommendations: [
+            { id: 'lighting', loadType: 'Lighting', text: 'Install efficient lighting.' },
+            { id: 'hvac', loadType: 'HVAC', text: 'Improve HVAC controls.' },
+            { id: 'motors', loadType: 'Motors', text: 'Maintain pumps.' },
+            { id: 'electronics', loadType: 'Electronics', text: 'Enable power saving.' },
+            { id: 'custom_1', loadType: 'Custom', text: 'Custom recommendation.' }
+        ],
+        document: { getElementById: id => elements.get(id) || null },
+        renderLoadRecommendationBoxes: () => { renderedRecommendations += 1; }
+    };
+    vm.runInNewContext(await response.text(), context);
+    context.clearAuditEntryFields();
+
+    inputIds.forEach(id => assert.equal(elements.get(id).value, ''));
+    assert.equal(context.loadRecommendations.length, 4);
+    assert.ok(context.loadRecommendations.every(item => item.text === ''));
+    assert.equal(renderedRecommendations, 1);
+});
+
+test('keeps submitted recommendations available to reports after the entry fields are cleared', async () => {
+    const response = await fetch(`${baseUrl}/js/audit-report.js`);
+    const context = {
+        loadRecommendations: [{ loadType: 'Lighting', text: '' }]
+    };
+    vm.runInNewContext(await response.text(), context);
+
+    assert.equal(
+        context.getAuditRecommendationLines({ recommendations: ['Lighting: Install efficient lighting.'] }).join(''),
+        'Lighting: Install efficient lighting.'
+    );
 });
 
 test('exposes the personal dashboard loader to the sign-in flow', async () => {

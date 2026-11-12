@@ -45,6 +45,15 @@ function renderLoadRecommendationBoxes() {
         box.append(recommendationLabel, recommendationInput, printText);
         container.appendChild(box);
     });
+    updateRecommendationSubmitSection();
+}
+
+function updateRecommendationSubmitSection() {
+    const section = document.getElementById('recommendationSubmitSection');
+    if (!section) return;
+    section.hidden = !loadRecommendations.some(recommendation =>
+        recommendation.text && recommendation.text.trim()
+    );
 }
 
 function addCustomLoadBox() {
@@ -81,6 +90,7 @@ function updateLoadText(id, val) {
             printElem.textContent = val.trim() || 'No specific recommendations entered for this equipment category.';
         }
         saveAuditorComments();
+        updateRecommendationSubmitSection();
     }
 }
 

@@ -48,7 +48,7 @@ function updateSubmissionStatus() {
     const submission = findSubmissionForAudit(record);
     renderInventoryTable();
     if (!submission) {
-        status.textContent = 'Submit this facility audit for administrator review and approval.';
+        status.textContent = 'Complete facility details and add equipment, then enter recommendations before submitting for approval.';
         return;
     }
     const label = submission.status === 'approved' ? 'Approved' : submission.status === 'discarded' ? 'Discarded' : 'Pending administrator review';
@@ -81,21 +81,145 @@ function findSubmissionForAudit(record) {
     ) || null;
 }
 
-async function submitCurrentAudit() {
-    if (!currentUser) return;
-    const record = getCurrentAudit(false);
-    if (!record || !record.inventory.length) {
-        alert('Add at least one equipment item before submitting this facility audit.');
-        return;
-    }
-    record.facilityInfo.authorName = currentUser.name;
-    facilityInfo.authorName = currentUser.name;
-    if (!confirm('Submit this facility audit for administrator review and approval?')) {
-        alert('Submission cancelled.');
-        return;
+function getAuditReadinessIssue() {
+    const requiredFields = [
+        ['facilitySelector', 'Select a facility.'],
+        ['facilityLocation', 'Enter the facility location.'],
+        ['authorName', 'Auditor name is missing from this profile.'],
+        ['energySources', 'Enter the facility energy sources.'],
+        ['auditDate', 'Enter the audit date.'],
+        ['auditPurpose', 'Enter the audit purpose.'],
+        ['auditScope', 'Enter the audit scope and systems covered.']
+    ];
+    for (const [id, message] of requiredFields) {
+        const element = document.getElementById(id);
+        if (!element || !String(element.value || '').trim()) return { message, element };
     }
 
+    if (selectedFacility === 'Hostels') {
+        const hostelInput = document.getElementById('hostelName');
+        if (!selectedHostelName || !hostelInput || !hostelInput.value.trim()) {
+            return { message: 'Enter the hostel name before continuing.', element: hostelInput };
+        }
+    }
+
+    if (!Array.isArray(inventory) || !inventory.length) {
+        return {
+            message: 'Add at least one complete equipment item before continuing.',
+            element: document.getElementById('equipment')
+        };
+    }
+    const invalidEquipment = inventory.find(item =>
+        !item.category || !item.name || !Number.isFinite(Number(item.watts)) || Number(item.watts) <= 0 ||
+        !Number.isInteger(Number(item.qty)) || Number(item.qty) < 1 ||
+        !Number.isFinite(Number(item.hours)) || Number(item.hours) <= 0 || Number(item.hours) > 24
+    );
+    if (invalidEquipment) {
+        return {
+            message: 'Complete every equipment item with a category, name, positive power rating, whole-number quantity, and operating hours from 0 to 24.',
+            element: document.getElementById('equipment')
+        };
+    }
+    return null;
+}
+
+function ensureAuditReady() {
+    const issue = getAuditReadinessIssue();
+    if (!issue) return true;
+    alert(issue.message);
+    if (issue.element && typeof issue.element.focus === 'function') issue.element.focus();
+    return false;
+}
+
+function clearAuditEntryFields() {
+    [
+        'facilityLocation',
+        'authorName',
+        'energySources',
+        'auditDate',
+        'auditPurpose',
+        'auditScope',
+        'hostelName',
+        'equipment',
+        'wattage',
+        'availableNumber',
+        'operatingHours',
+        'historyMonth',
+        'historyKwh',
+        'historyCost',
+        'auditPhotos'
+    ].forEach(id => {
+        const input = document.getElementById(id);
+        if (input) input.value = '';
+    });
+    loadRecommendations = loadRecommendations.slice(0, 4).map(recommendation => ({
+        ...recommendation,
+        text: ''
+    }));
+    renderLoadRecommendationBoxes();
+}
+
+function beginAuditRecommendations() {
+    if (!currentUser) {
+        alert('Sign in before continuing with this audit.');
+        return;
+    }
+    if (selectedFacility === 'Hostels') {
+        const hostelInput = document.getElementById('hostelName');
+        if (hostelInput && hostelInput.value.trim() && hostelInput.value.trim() !== selectedHostelName) {
+            selectHostelAudit();
+        }
+    }
+    if (!ensureAuditReady()) return;
+
+    saveFacilityDetails();
+    switchPage('measures');
+    const recommendationsPanel = document.getElementById('auditorRecommendationsPanel');
+    if (recommendationsPanel) {
+        recommendationsPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        recommendationsPanel.focus({ preventScroll: true });
+    }
+}
+
+async function submitCurrentAudit() {
+    if (!currentUser) return;
+    if (selectedFacility === 'Hostels') {
+        const hostelInput = document.getElementById('hostelName');
+        if (hostelInput && hostelInput.value.trim() && hostelInput.value.trim() !== selectedHostelName) {
+            selectHostelAudit();
+        }
+    }
+    if (!ensureAuditReady()) return;
+
+    const enteredRecommendations = loadRecommendations
+        .filter(item => item.text && item.text.trim())
+        .map(item => ({ loadType: item.loadType.trim(), text: item.text.trim() }));
+    if (enteredRecommendations.some(item => !item.loadType)) {
+        alert('Add a name for every equipment category that has a recommendation.');
+        return;
+    }
+    if (!enteredRecommendations.length) {
+        alert('Enter at least one equipment recommendation before submitting this audit.');
+        const firstRecommendation = document.querySelector('#auditorCommentsContainer textarea');
+        if (firstRecommendation) firstRecommendation.focus();
+        return;
+    }
+    if (!confirm('Submit this facility audit and its recommendations for administrator review and approval?')) return;
+
     try {
+        saveFacilityDetails();
+        const record = getCurrentAudit(false);
+        if (!record) throw new Error('The selected facility audit could not be found.');
+        record.inventory = inventory;
+        record.historicalData = historicalData;
+        record.photos = auditPhotos;
+        record.recommendations = enteredRecommendations.map(item => `${item.loadType}: ${item.text}`);
+
+        clearTimeout(userDataSaveTimers.recommendations);
+        await apiRequest('/api/recommendations', {
+            method: 'PUT',
+            body: JSON.stringify({ recommendations: loadRecommendations })
+        });
         clearTimeout(auditSaveTimer);
         await persistAuditRecord(record);
         const { audit } = await apiRequest(`/api/audits/${encodeURIComponent(record.id)}/submit`, {
@@ -112,7 +236,17 @@ async function submitCurrentAudit() {
             }
         });
         saveSharedSubmissions();
-        alert('Facility audit submitted for administrator approval.');
+        clearAuditEntryFields();
+        clearTimeout(userDataSaveTimers.recommendations);
+        try {
+            await apiRequest('/api/recommendations', {
+                method: 'PUT',
+                body: JSON.stringify({ recommendations: loadRecommendations })
+            });
+        } catch (error) {
+            reportApiError(error);
+        }
+        alert('Facility audit submitted for administrator approval. Entry fields are cleared; select another facility to start the next audit.');
     } catch (error) {
         reportApiError(error);
     }
