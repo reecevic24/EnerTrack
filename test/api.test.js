@@ -47,6 +47,10 @@ test('serves the updated frontend, assets, and existing API bridge', async () =>
     assert.doesNotMatch(pageText, /id="dashboardReports"/);
     assert.match(pageText, /src="moi-university-campus\.jpeg"[^>]*class="campus-img"/);
     assert.match(pageText, /Only an administrator can approve administrator access/);
+    assert.match(pageText, /id="addAdminsButton"/);
+    assert.match(pageText, /id="seeAdminsButton"/);
+    assert.match(pageText, /id="approveAuditsButton"/);
+    assert.match(pageText, /id="auditStatusButton"/);
     assert.doesNotMatch(pageText, /id="floorArea"/);
     assert.match(pageText, /id="regPass"[^>]*minlength="6"/);
     assert.match(pageText, /id="authorName"[^>]*readonly/);

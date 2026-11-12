@@ -454,7 +454,13 @@
             <section id="adminAccountsPanel" class="card-panel" style="display: none;">
                 <h4>Administrator: Auditor accounts</h4>
                 <p class="facility-hint">Only an administrator can approve administrator access or return an account to auditor access.</p>
-                <div id="accountList" class="submission-list"></div>
+                <div class="action-row profile-dropdown-controls">
+                    <button id="addAdminsButton" class="btn-action" type="button" aria-expanded="false" aria-controls="accountListPanel" onclick="toggleProfileDropdown('accounts', 'auditors')">Add admins</button>
+                    <button id="seeAdminsButton" class="btn-action" type="button" aria-expanded="false" aria-controls="accountListPanel" onclick="toggleProfileDropdown('accounts', 'admins')">See admins</button>
+                </div>
+                <div id="accountListPanel" class="profile-dropdown-panel" hidden>
+                    <div id="accountList" class="submission-list"></div>
+                </div>
             </section>
             <section class="card-panel">
                 <h4>📨 My facility submissions</h4>
@@ -463,7 +469,13 @@
             <section id="adminReviewPanel" class="card-panel" style="display: none;">
                 <h4>📝 Administrator: Audit approval queue</h4>
                 <p class="facility-hint">Edit submitted facility and equipment details, approve the final data, or discard a submission. Edited submissions return to pending until approved.</p>
-                <div id="adminReviewQueue"></div>
+                <div class="action-row profile-dropdown-controls">
+                    <button id="approveAuditsButton" class="btn-action" type="button" aria-expanded="false" aria-controls="adminReviewQueuePanel" onclick="toggleProfileDropdown('audits', 'pending')">Approve audit</button>
+                    <button id="auditStatusButton" class="btn-action" type="button" aria-expanded="false" aria-controls="adminReviewQueuePanel" onclick="toggleProfileDropdown('audits', 'status')">Audits status</button>
+                </div>
+                <div id="adminReviewQueuePanel" class="profile-dropdown-panel" hidden>
+                    <div id="adminReviewQueue"></div>
+                </div>
             </section>
         </div>
 

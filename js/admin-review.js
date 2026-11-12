@@ -1,6 +1,19 @@
 let accountCache = [];
 let administratorExists = false;
 let canClaimAdministrator = false;
+let activeAccountView = '';
+let activeAuditView = '';
+
+function toggleProfileDropdown(section, view) {
+    if (section === 'accounts') {
+        activeAccountView = activeAccountView === view ? '' : view;
+    } else if (section === 'audits') {
+        activeAuditView = activeAuditView === view ? '' : view;
+    } else {
+        return;
+    }
+    renderProfiles();
+}
 
 async function loadAccountManagementState() {
     const setup = await apiRequest('/api/auth/setup-status');
@@ -31,6 +44,14 @@ function renderProfiles() {
         !administratorExists && canClaimAdministrator ? 'inline-block' : 'none';
     document.getElementById('adminAccountsPanel').style.display = admin ? 'block' : 'none';
     document.getElementById('adminReviewPanel').style.display = admin ? 'block' : 'none';
+    const accountListPanel = document.getElementById('accountListPanel');
+    accountListPanel.hidden = !admin || !activeAccountView;
+    document.getElementById('addAdminsButton').setAttribute('aria-expanded', String(activeAccountView === 'auditors'));
+    document.getElementById('seeAdminsButton').setAttribute('aria-expanded', String(activeAccountView === 'admins'));
+    const reviewQueuePanel = document.getElementById('adminReviewQueuePanel');
+    reviewQueuePanel.hidden = !admin || !activeAuditView;
+    document.getElementById('approveAuditsButton').setAttribute('aria-expanded', String(activeAuditView === 'pending'));
+    document.getElementById('auditStatusButton').setAttribute('aria-expanded', String(activeAuditView === 'status'));
     renderAccountList();
 
     const mine = document.getElementById('mySubmissionList');
@@ -71,7 +92,15 @@ function renderAccountList() {
     list.innerHTML = '';
     if (!isAdministrator()) return;
 
-    accountCache.forEach(account => {
+    const role = activeAccountView === 'admins' ? 'admin' : 'auditor';
+    const accounts = accountCache.filter(account => account.role === role);
+    if (!activeAccountView) return;
+    if (!accounts.length) {
+        list.textContent = role === 'admin' ? 'There are no administrator accounts.' : 'There are no auditor accounts to promote.';
+        return;
+    }
+
+    accounts.forEach(account => {
         const row = document.createElement('div');
         row.className = 'submission-card';
         const description = document.createElement('span');
@@ -167,10 +196,17 @@ function renderAdminReviewQueue() {
     if (!queue) return;
     queue.innerHTML = '';
     if (!isAdministrator()) return;
+    if (!activeAuditView) return;
 
-    const submissions = sharedSubmissions;
+    const submissions = sharedSubmissions.filter(submission =>
+        activeAuditView === 'pending'
+            ? submission.status === 'pending'
+            : submission.status === 'approved' || submission.status === 'discarded'
+    );
     if (!submissions.length) {
-        queue.textContent = 'There are no submitted audits to review.';
+        queue.textContent = activeAuditView === 'pending'
+            ? 'There are no pending audits to approve.'
+            : 'There are no approved or discarded audits.';
         return;
     }
 
@@ -178,9 +214,13 @@ function renderAdminReviewQueue() {
         const card = document.createElement('article');
         card.className = 'submission-card';
         const heading = document.createElement('h5');
-        if (submission.status === 'approved' || submission.status === 'discarded') {
+        if (activeAuditView === 'status') {
             heading.textContent = `${currentAuditLabel(submission)} · ${submission.status.toUpperCase()} - ${submission.auditorName || submission.auditorEmail}`;
             card.appendChild(heading);
+            const details = document.createElement('p');
+            details.className = 'facility-hint';
+            details.textContent = `Submitted ${new Date(submission.submittedAt).toLocaleString()}${submission.reviewedBy ? ` · Reviewed by ${submission.reviewedBy}` : ''}`;
+            card.appendChild(details);
             if (submission.status === 'approved') {
                 const remove = document.createElement('button');
                 remove.type = 'button';
@@ -191,18 +231,16 @@ function renderAdminReviewQueue() {
                 actions.className = 'action-row';
                 actions.appendChild(remove);
                 card.appendChild(actions);
-            } else {
-                if (normalizeEmail(submission.auditorEmail) === normalizeEmail(currentUser.email)) {
-                    const remove = document.createElement('button');
-                    remove.type = 'button';
-                    remove.className = 'btn-delete';
-                    remove.textContent = 'Delete';
-                    remove.addEventListener('click', () => deleteDiscardedSubmission(submission.id, remove));
-                    const actions = document.createElement('div');
-                    actions.className = 'action-row';
-                    actions.appendChild(remove);
-                    card.appendChild(actions);
-                }
+            } else if (normalizeEmail(submission.auditorEmail) === normalizeEmail(currentUser.email)) {
+                const remove = document.createElement('button');
+                remove.type = 'button';
+                remove.className = 'btn-delete';
+                remove.textContent = 'Delete';
+                remove.addEventListener('click', () => deleteDiscardedSubmission(submission.id, remove));
+                const actions = document.createElement('div');
+                actions.className = 'action-row';
+                actions.appendChild(remove);
+                card.appendChild(actions);
             }
             queue.appendChild(card);
             return;

@@ -110,6 +110,15 @@
     gap: 0.5rem;
 }
 
+.profile-dropdown-controls {
+    flex-wrap: wrap;
+    margin-top: 0.75rem;
+}
+
+.profile-dropdown-panel {
+    margin-top: 0.75rem;
+}
+
 .history-entry {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
