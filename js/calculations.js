@@ -90,8 +90,11 @@ function updateUniversitySummary() {
     document.getElementById('dashboardFacilityCount').textContent = `${auditedCount} / ${facilityNames.length}`;
     document.getElementById('dashboardFacilityCount').closest('.box').hidden =
         !!currentUser && currentUser.role !== 'admin';
-    document.getElementById('dashboardAuditCountLabel').textContent =
-        currentUser && currentUser.role !== 'admin' ? 'My submitted audits' : 'Facility audits';
+    const dashboardAuditCountLabel = document.getElementById('dashboardAuditCountLabel');
+    if (dashboardAuditCountLabel) {
+        dashboardAuditCountLabel.textContent =
+            currentUser && currentUser.role !== 'admin' ? 'My submitted audits' : 'Facility audits';
+    }
 
     const tbody = document.getElementById('universityFacilityBody');
     tbody.innerHTML = '';
@@ -149,6 +152,7 @@ function updateUniversitySummary() {
 
 async function loadPersonalDashboard() {
     if (!currentUser) return;
+    if (!document.getElementById('dashboardAuditCount')) return;
     try {
         const { personal } = await apiRequest('/api/dashboard');
         const submittedAuditCount = sharedSubmissions.filter(item =>

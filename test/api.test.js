@@ -42,9 +42,9 @@ test('serves the updated frontend, assets, and existing API bridge', async () =>
     assert.match(pageText, /EnerTrack/);
     assert.doesNotMatch(pageText, /id="auditFindings"/);
     assert.doesNotMatch(pageText, /id="auditRecommendations"/);
-    assert.match(pageText, /id="dashboardAuditCount"/);
-    assert.match(pageText, /id="dashboardRecentAudits"/);
-    assert.match(pageText, /id="dashboardReports"/);
+    assert.doesNotMatch(pageText, /id="dashboardAuditCount"/);
+    assert.doesNotMatch(pageText, /id="dashboardRecentAudits"/);
+    assert.doesNotMatch(pageText, /id="dashboardReports"/);
     assert.match(pageText, /src="moi-university-campus\.jpeg"[^>]*class="campus-img"/);
     assert.match(pageText, /Only an administrator can approve administrator access/);
     assert.doesNotMatch(pageText, /id="floorArea"/);
@@ -102,6 +102,19 @@ test('shows auditors only their own submitted audits on the dashboard', async ()
     vm.runInNewContext(await response.text(), context);
     await context.loadPersonalDashboard();
     assert.equal(elements.get('dashboardAuditCount').textContent, '2');
+});
+
+test('skips personal dashboard loading when its widgets are removed', async () => {
+    const response = await fetch(`${baseUrl}/js/calculations.js`);
+    let requestCount = 0;
+    const context = {
+        currentUser: { email: 'auditor@example.com', role: 'auditor' },
+        document: { getElementById: () => null },
+        apiRequest: async () => { requestCount += 1; }
+    };
+    vm.runInNewContext(await response.text(), context);
+    await context.loadPersonalDashboard();
+    assert.equal(requestCount, 0);
 });
 
 test('allows credentialed API requests from the deployed Netlify origin', async () => {
