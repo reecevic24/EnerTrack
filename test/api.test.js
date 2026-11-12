@@ -27,12 +27,14 @@ test.after(async () => {
     }
 });
 
-test('serves the existing frontend and its API bridge', async () => {
-    const [page, client, config, campusImage] = await Promise.all([
+test('serves the updated frontend, assets, and existing API bridge', async () => {
+    const [page, client, config, campusImage, stylesheet, frontendScript] = await Promise.all([
         fetch(baseUrl),
         fetch(`${baseUrl}/client.js`),
         fetch(`${baseUrl}/api-config.js`),
-        fetch(`${baseUrl}/moi-university-campus.jpeg`)
+        fetch(`${baseUrl}/moi-university-campus.jpeg`),
+        fetch(`${baseUrl}/css/base.css`),
+        fetch(`${baseUrl}/js/state.js`)
     ]);
     assert.equal(page.status, 200);
     const pageText = await page.text();
@@ -43,19 +45,22 @@ test('serves the existing frontend and its API bridge', async () => {
     assert.match(pageText, /id="dashboardRecentAudits"/);
     assert.match(pageText, /id="dashboardReports"/);
     assert.match(pageText, /src="moi-university-campus\.jpeg"[^>]*class="campus-img"/);
-    assert.match(pageText, /height:\s*clamp\(180px,\s*22vw,\s*300px\)/);
     assert.match(pageText, /Only an administrator can approve administrator access/);
-    assert.doesNotMatch(pageText, /id="floorArea"|id="buildingType"/);
+    assert.match(pageText, /id="floorArea"/);
     assert.match(pageText, /id="authorName"[^>]*readonly/);
-    assert.match(pageText, /Enter email or registration number/);
-    assert.match(pageText, /id="loginFormView">/);
-    assert.match(pageText, /id="registerFormView" style="display: none;">/);
-    assert.match(pageText, /id="resetPasswordSubmit"[^>]*>Send reset link<\/button>/);
-    assert.match(pageText, /id="resetPasswordGroup" style="display: none;/);
+    assert.match(pageText, /Enter registered email or Reg No\.\/ID/);
+    assert.match(pageText, /id="loginFormView" style="display: none;">/);
+    assert.match(pageText, /id="registerFormView">/);
+    assert.match(pageText, /id="resetPasswordSubmit"[^>]*>Update password<\/button>/);
+    assert.match(pageText, /id="resetPasswordGroup" class="form-group" style="display: none;/);
     assert.equal(client.status, 200);
     assert.match(await client.text(), /apiRequest\('\/auth\/login',/);
     assert.equal(config.status, 200);
     assert.match(await config.text(), /https:\/\/enertrack-1\.onrender\.com/);
+    assert.equal(stylesheet.status, 200);
+    assert.match(await stylesheet.text(), /\.site-header/);
+    assert.equal(frontendScript.status, 200);
+    assert.match(await frontendScript.text(), /credentials: 'include'/);
     assert.equal(campusImage.status, 200);
     assert.match(campusImage.headers.get('content-type'), /image\/jpeg/);
     assert.ok((await campusImage.arrayBuffer()).byteLength > 0);

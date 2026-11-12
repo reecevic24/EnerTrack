@@ -90,6 +90,8 @@ app.use('/api', auditRoutes);
 const frontendPath = path.resolve(__dirname, '..', 'index.html');
 if (fs.existsSync(frontendPath)) {
     app.get(['/', '/index.html'], (req, res) => res.sendFile(frontendPath));
+    app.use('/css', express.static(path.resolve(__dirname, '..', 'css')));
+    app.use('/js', express.static(path.resolve(__dirname, '..', 'js')));
     app.get('/client.js', (req, res) => res.sendFile(path.resolve(__dirname, '..', 'client.js')));
     app.get('/api-config.js', (req, res) => res.sendFile(path.resolve(__dirname, '..', 'api-config.js')));
     app.get('/moi-university-campus.jpeg', (req, res) =>

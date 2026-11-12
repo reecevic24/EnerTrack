@@ -1,0 +1,430 @@
+.print-comment-text {
+    display: none;
+    color: #000000;
+    font-size: 10pt;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    border: 1px solid #cbd5e1;
+    border-left: 4px solid #04e617;
+    padding: 1rem;
+    border-radius: 6px;
+    background: #f8fafc;
+    min-height: 150px;
+    page-break-inside: avoid;
+}
+
+.save-indicator {
+    font-size: 0.8rem;
+    color: #04e617;
+    font-weight: 700;
+    text-align: right;
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+
+.save-indicator.visible { opacity: 1; }
+
+/* Auth Gateway Overlay */
+.auth-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(10, 15, 26, 0.92);
+    backdrop-filter: blur(6px);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+}
+
+.auth-card {
+    background: #1a202c;
+    border: 1px solid #334155;
+    border-radius: 12px;
+    width: 100%;
+    max-width: 440px;
+    padding: 2rem;
+    box-shadow: 0 12px 32px rgba(0,0,0,0.6);
+}
+
+.auth-card h3 {
+    color: #ffbb00;
+    margin-bottom: 0.5rem;
+    text-align: center;
+    font-size: 1.4rem;
+}
+
+.auth-card p {
+    color: #94a3b8;
+    font-size: 0.85rem;
+    text-align: center;
+    margin-bottom: 1.5rem;
+}
+
+.auth-switch {
+    text-align: center;
+    margin-top: 1.25rem;
+    font-size: 0.85rem;
+    color: #94a3b8;
+}
+
+.auth-switch a {
+    color: #04e617;
+    text-decoration: none;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.forgot-link-wrapper {
+    text-align: center;
+    margin-top: 0.75rem;
+}
+
+.forgot-link-wrapper a {
+    color: #ffbb00;
+    font-size: 0.82rem;
+    cursor: pointer;
+}
+
+.print-header { display: none; }
+.print-campus-photo { display: none; }
+
+/* UNIFIED PRINT STYLES MATCHING THE EXACT SCREENSHOT LAYOUT + CAMPUS IMAGE */
+@media print {
+    @page {
+        size: A4 landscape;
+    }
+
+    body {
+        background-color: #ffffff !important;
+        color: #000000 !important;
+        font-size: 10pt;
+        padding: 0 !important;
+        -webkit-print-color-adjust: exact;
+    }
+
+    /* Custom Top Bar matching Screenshot layout exactly */
+    .print-header {
+        display: flex !important;
+        justify-content: space-between;
+        align-items: flex-end;
+        border-bottom: 2px solid #000;
+        padding-bottom: 8px;
+        margin-bottom: 15px;
+        width: 100%;
+    }
+
+    .print-header-title {
+        font-size: 16pt;
+        font-weight: bold;
+        color: #000;
+        letter-spacing: 0.5px;
+    }
+
+    .print-header-user {
+        font-size: 10pt;
+        font-weight: 600;
+        color: #333;
+    }
+
+    /* Print Campus Photo Styling */
+    .print-campus-photo {
+        display: block !important;
+        width: 100% !important;
+        height: 180px !important;
+        object-fit: cover !important;
+        border-radius: 8px !important;
+        border: 1px solid #cbd5e1 !important;
+        margin-bottom: 15px !important;
+        page-break-inside: avoid;
+    }
+
+    /* HIDE ALL APP CONTROLS, FORMS, BUTTONS & OTHER TABS */
+    .site-header,
+    .nav-tabs,
+    .auth-overlay,
+    #pageDashboard,
+    #pageFacilities,
+    #pageUniversity,
+    .facility-info-card,
+    .ecm-card-panel,
+    .btn-delete,
+    .btn-clear-all,
+    .btn-remove-custom-box,
+    .action-row,
+    .tariff-setting,
+    .save-indicator,
+    .btn-add-load-box,
+    .recs-intro-text,
+    .equipment-details-panel,
+    .print-orientation-control,
+    .ai-generate,
+    th:last-child,
+    td:last-child {
+        display: none !important;
+    }
+
+    /* FORCE VISIBILITY OF FACILITY BAR, INVENTORY & GRAPH */
+    #pageAudit, #pageMeasures {
+        display: block !important;
+    }
+
+    .ai-report-panel {
+        background: #ffffff !important;
+        color: #000000 !important;
+    }
+
+    .ai-report-content {
+        color: #000000 !important;
+    }
+
+    .facility-display-bar {
+        display: flex !important;
+        background: #ffffff !important;
+        border: 1px solid #94a3b8 !important;
+        border-radius: 8px !important;
+        padding: 10px 14px !important;
+        margin-bottom: 20px !important;
+        color: #000000 !important;
+        box-shadow: none !important;
+    }
+
+    .facility-display-bar div {
+        color: #000000 !important;
+    }
+
+    .facility-display-bar span {
+        color: #b45309 !important; /* Dark amber/gold matching screenshot */
+        font-weight: bold !important;
+    }
+
+    body.print-university-breakdown .site-header,
+    body.print-university-breakdown .auth-overlay,
+    body.print-university-breakdown #pageDashboard,
+    body.print-university-breakdown #pageFacilities,
+    body.print-university-breakdown #pageAudit,
+    body.print-university-breakdown #pageMeasures,
+    body.print-university-breakdown #pageProfiles,
+    body.print-university-breakdown .download-university-button {
+        display: none !important;
+    }
+
+    body.print-university-breakdown #pageUniversity {
+        display: block !important;
+        width: 100% !important;
+        overflow: visible !important;
+    }
+
+    body.print-university-breakdown .container {
+        max-width: none !important;
+        width: 100% !important;
+        padding: 0 !important;
+        overflow: visible !important;
+    }
+
+    body.print-university-breakdown #pageUniversity .card-panel {
+        width: 100% !important;
+        overflow: visible !important;
+        break-inside: auto;
+        page-break-inside: auto;
+    }
+
+    body.print-university-breakdown #pageUniversity .table-responsive {
+        overflow: visible !important;
+        border: 0 !important;
+    }
+
+    body.print-university-breakdown #pageUniversity table {
+        min-width: 0 !important;
+        width: 100% !important;
+        break-inside: auto;
+        page-break-inside: auto;
+    }
+
+    body.print-university-breakdown #pageUniversity tr {
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+
+    body.print-university-breakdown #pageUniversity .chart-box-single {
+        height: 340px !important;
+        max-width: none !important;
+        overflow: visible !important;
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+
+    body.print-university-breakdown #pageUniversity .chart-box-single canvas {
+        max-width: 100% !important;
+        max-height: 100% !important;
+    }
+
+    body.print-university-breakdown #pageUniversity #universityChart {
+        display: none !important;
+    }
+
+    body.print-university-breakdown #pageUniversity .university-chart-print-image {
+        display: block !important;
+        width: 100% !important;
+        height: 340px !important;
+        object-fit: contain !important;
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+
+    body.print-university-breakdown #pageUniversity th:last-child,
+    body.print-university-breakdown #pageUniversity td:last-child {
+        display: table-cell !important;
+    }
+
+    .card-panel {
+        background: #ffffff !important;
+        border: 1px solid #cbd5e1 !important;
+        border-radius: 10px !important;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05) !important;
+        padding: 1.25rem !important;
+        margin-bottom: 1.5rem !important;
+    }
+
+    .card-panel h4 {
+        color: #b45309 !important; /* Golden yellow title matching screenshot */
+        border-bottom: 1px solid #cbd5e1 !important;
+        padding-bottom: 0.5rem !important;
+    }
+
+    table {
+        width: 100% !important;
+        color: #000000 !important;
+    }
+
+    th {
+        background-color: #f8fafc !important;
+        color: #000000 !important;
+        border-bottom: 1px solid #cbd5e1 !important;
+    }
+
+    td {
+        color: #000000 !important;
+        border-bottom: 1px solid #e2e8f0 !important;
+    }
+
+    .badge-pill {
+        background: #f1f5f9 !important;
+        color: #000000 !important;
+        border: 1px solid #cbd5e1 !important;
+    }
+
+    .auditor-comments-panel {
+        background: #ffffff !important;
+        border: 2px solid #b45309 !important;
+        box-shadow: none !important;
+        padding: 1.25rem !important;
+        margin-bottom: 1.5rem !important;
+        page-break-before: always;
+    }
+
+    .auditor-comments-grid {
+        grid-template-columns: 1fr !important;
+        gap: 1.5rem !important;
+    }
+
+    .auditor-comment-box {
+        background: #ffffff !important;
+        border: 1px solid #94a3b8 !important;
+        border-left: 4px solid #b45309 !important;
+        padding: 1rem !important;
+        page-break-inside: avoid;
+    }
+
+    .auditor-comment-box label,
+    .auditor-comment-box input.load-type-input {
+        color: #b45309 !important;
+        font-weight: bold !important;
+        border: none !important;
+        background: transparent !important;
+        padding: 0 !important;
+        font-size: 11pt !important;
+    }
+
+    .auditor-comment-box textarea {
+        display: none !important;
+    }
+
+    .print-comment-text {
+        display: block !important;
+        background: #f8fafc !important;
+        color: #000000 !important;
+        border: 1px solid #cbd5e1 !important;
+        border-left: 4px solid #04e617 !important;
+        font-size: 10pt !important;
+        line-height: 1.5 !important;
+    }
+
+    .chart-box-single {
+        height: 280px !important;
+        width: 100% !important;
+        page-break-inside: avoid;
+    }
+
+}
+
+/* RESPONSIVE STYLES */
+@media (max-width: 1024px) {
+    .card-row { grid-template-columns: repeat(3, 1fr); }
+}
+
+@media (max-width: 880px) {
+    .header-container { flex-wrap: wrap; }
+    .brand, .user-pill { flex: 0 0 auto; }
+    .nav-tabs { order: 3; width: 100%; justify-content: center; margin-top: 0.5rem; }
+}
+
+@media (max-width: 600px) {
+    .site-header { padding: 0.5rem; }
+    .brand h1 { font-size: 0.85rem; }
+    .header-container { gap: 0.5rem; }
+    .nav-tabs { order: 3; width: 100%; margin-top: 0.25rem; }
+    .nav-btn { flex: 0 0 auto; text-align: center; padding: 0.45rem 0.65rem; font-size: 0.75rem; }
+    .user-pill { max-width: 48%; }
+    .userNameDisplaySpan { max-width: 90px; }
+    .container { padding: 0.75rem 0.5rem 1.5rem; }
+    .card-panel { padding: 0.85rem; margin-bottom: 0.9rem; }
+    .card-row { gap: 0.55rem; }
+    .box { padding: 0.7rem; }
+    .box-value { font-size: 0.95rem; }
+    .card-row, .strategy-grid, .auditor-comments-grid, .form-grid, .facility-picker, .university-kpis { grid-template-columns: 1fr; }
+    .equipment-comparison-grid, .equipment-detail-row { grid-template-columns: 1fr; }
+    .history-entry, .submission-equipment { grid-template-columns: 1fr 1fr; }
+    .btn-calc { grid-column: span 1; }
+    .campus-img { height: 180px; }
+    .hero-overlay { flex-direction: column; align-items: flex-start; }
+    .tariff-setting { flex-direction: column; align-items: stretch; }
+    .tariff-setting div { display: flex; justify-content: space-between; align-items: center; }
+    .facility-display-bar { flex-direction: column; gap: 0.4rem; }
+    .action-row > button { flex: 1 1 auto; }
+    .print-orientation-control { width: 100%; justify-content: space-between; }
+    .chart-box-single { height: 250px; }
+    .submission-card { padding: 0.75rem; overflow-wrap: anywhere; }
+    .audit-photo-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+.profile-card {
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 15px;
+    margin: 10px 0;
+}
+
+.profile-card h3 {
+    color: #1e3a8a;
+}
+
+.profile-card span {
+    background: #e0f2fe;
+    padding: 5px 10px;
+    border-radius: 5px;
+}
