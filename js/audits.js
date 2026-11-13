@@ -226,6 +226,35 @@ function initializeFacilitySelector() {
     printPlaceholder.value = '';
     printPlaceholder.textContent = 'Select a facility...';
     printSelector.appendChild(printPlaceholder);
+    if (isAdministrator()) {
+        const adminAudits = audits
+            .filter(audit => audit.id)
+            .slice()
+            .sort((a, b) => reportAuditLabel(a).localeCompare(reportAuditLabel(b), 'en', {
+                numeric: true,
+                sensitivity: 'base'
+            }));
+        facilityPlaceholder.textContent = adminAudits.length
+            ? 'Select an audit...'
+            : 'No facility audits available';
+        adminAudits.forEach(audit => {
+            const option = document.createElement('option');
+            option.value = String(audit.id);
+            option.textContent = `${reportAuditLabel(audit)} · ${audit.status}`;
+            selector.appendChild(option);
+            const printOption = document.createElement('option');
+            printOption.value = String(audit.id);
+            printOption.textContent = option.textContent;
+            printSelector.appendChild(printOption);
+        });
+        selector.value = selectedAdminAuditId;
+        printSelector.value = selectedAdminAuditId;
+        document.getElementById('hostelNameGroup').style.display = selectedFacility === 'Hostels' ? 'flex' : 'none';
+        document.getElementById('hostelName').value = selectedHostelName;
+        initializeReportFacilitySelector();
+        return;
+    }
+
     const hostelAudits = audits
         .filter(audit => audit.facilityId === 'Hostels' && audit.hostelName)
         .sort((a, b) =>
@@ -346,6 +375,22 @@ function handleFacilitySelection() {
         document.getElementById('hostelName').value = '';
         loadActiveAudit();
         updateSubmissionStatus();
+        return;
+    }
+    if (isAdministrator()) {
+        const selectedAudit = audits.find(audit => String(audit.id) === selectedValue);
+        if (!selectedAudit) {
+            alert('Select a facility audit available to your account.');
+            initializeFacilitySelector();
+            return;
+        }
+        selectedAdminAuditId = String(selectedAudit.id);
+        selectedFacility = selectedAudit.facilityId;
+        selectedHostelName = selectedAudit.hostelName || '';
+        document.getElementById('printFacilitySelector').value = selectedAdminAuditId;
+        document.getElementById('hostelName').value = selectedHostelName;
+        document.getElementById('hostelNameGroup').style.display = selectedFacility === 'Hostels' ? 'flex' : 'none';
+        loadActiveAudit();
         return;
     }
     if (selectedValue === ADD_HOSTEL_OPTION) {
@@ -470,7 +515,7 @@ function loadActiveAudit() {
     inventory = record ? record.inventory : [];
     facilityInfo = record ? { ...createEmptyFacilityInfo(), ...record.facilityInfo } : createEmptyFacilityInfo();
     if (!selectedFacility) facilityInfo.auditDate = '';
-    if (currentUser) facilityInfo.authorName = currentUser.name;
+    if (currentUser && !isAdministrator()) facilityInfo.authorName = currentUser.name;
     historicalData = record && Array.isArray(record.historicalData) ? record.historicalData : [];
     auditPhotos = record && Array.isArray(record.photos) ? record.photos : [];
     document.getElementById('facilityLocation').value = facilityInfo.facilityLocation || '';

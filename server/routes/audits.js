@@ -216,7 +216,7 @@ async function saveAudit(client, userId, auditId, data, status = null) {
          ON CONFLICT (id) DO UPDATE SET
             facility_id = EXCLUDED.facility_id,
             hostel_name = EXCLUDED.hostel_name,
-            status = COALESCE($5, CASE WHEN audits.status = 'discarded' THEN 'draft' ELSE 'pending' END),
+            status = COALESCE($5, audits.status),
             location = EXCLUDED.location,
             floor_area = EXCLUDED.floor_area,
             author_name = EXCLUDED.author_name,
@@ -234,8 +234,6 @@ async function saveAudit(client, userId, auditId, data, status = null) {
             report_generated_at = CASE WHEN EXCLUDED.report_text = '' THEN NULL ELSE now() END,
             findings = CASE WHEN $20::text IS NULL THEN audits.findings ELSE EXCLUDED.findings END,
             submitted_at = CASE WHEN $5 = 'pending' THEN COALESCE(audits.submitted_at, now()) ELSE audits.submitted_at END,
-            reviewed_at = CASE WHEN $5 IS NOT NULL THEN audits.reviewed_at ELSE NULL END,
-            reviewed_by = CASE WHEN $5 IS NOT NULL THEN audits.reviewed_by ELSE NULL END,
             version = audits.version + 1,
             updated_at = now()
          WHERE audits.auditor_id = $2

@@ -6,6 +6,7 @@ process.env.DATABASE_URL ||= 'postgres://enertrack:test@127.0.0.1:1/enertrack_te
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const vm = require('node:vm');
+const fs = require('node:fs');
 process.env.FRONTEND_ORIGINS = 'https://enertrackmo.netlify.app,https://reecevic24.github.io';
 const app = require('../server/app');
 const { requireAuditor } = require('../server/routes/auth');
@@ -221,6 +222,63 @@ test('resets the facility entry screen without selecting the just-submitted audi
     assert.equal(context.selectedFacility, '');
     assert.equal(context.selectedHostelName, '');
     assert.deepEqual(calls, ['initialize', 'load', 'facilities']);
+});
+
+test('preserves each audit status and review metadata when background saves update audit data', () => {
+    const auditRoutes = fs.readFileSync(require.resolve('../server/routes/audits'), 'utf8');
+
+    assert.match(auditRoutes, /status = COALESCE\(\$5, audits\.status\)/);
+    assert.doesNotMatch(auditRoutes, /CASE WHEN audits\.status = 'discarded' THEN 'draft' ELSE 'pending' END/);
+    assert.doesNotMatch(auditRoutes, /reviewed_at = CASE WHEN \$5 IS NOT NULL THEN audits\.reviewed_at ELSE NULL END/);
+    assert.doesNotMatch(auditRoutes, /reviewed_by = CASE WHEN \$5 IS NOT NULL THEN audits\.reviewed_by ELSE NULL END/);
+});
+
+test('lets administrators select each auditor audit independently in the facility view', async () => {
+    const response = await fetch(`${baseUrl}/js/audits.js`);
+    const elements = new Map();
+    const document = {
+        createElement: () => ({ value: '', textContent: '' }),
+        getElementById(id) {
+            if (!elements.has(id)) {
+                elements.set(id, {
+                    value: '',
+                    innerHTML: '',
+                    style: {},
+                    children: [],
+                    appendChild(option) { this.children.push(option); }
+                });
+            }
+            return elements.get(id);
+        }
+    };
+    const context = {
+        currentUser: { role: 'admin' },
+        selectedFacility: '',
+        selectedHostelName: '',
+        selectedAdminAuditId: 'audit-2',
+        isAdministrator: () => true,
+        facilityNames: ['Science Block'],
+        audits: [
+            { id: 'audit-1', key: 'Science Block', facilityId: 'Science Block', status: 'approved', auditorName: 'Auditor One', auditorEmail: 'one@example.com' },
+            { id: 'audit-2', key: 'Science Block', facilityId: 'Science Block', status: 'discarded', auditorName: 'Auditor Two', auditorEmail: 'two@example.com' }
+        ],
+        document,
+        alert() {}
+    };
+    vm.runInNewContext(await response.text(), context);
+    context.initializeReportFacilitySelector = () => {};
+    context.loadActiveAudit = () => {};
+
+    context.initializeFacilitySelector();
+    const facilitySelector = elements.get('facilitySelector');
+    assert.deepEqual(facilitySelector.children.map(option => option.value), ['', 'audit-1', 'audit-2']);
+    assert.equal(facilitySelector.value, 'audit-2');
+    assert.match(facilitySelector.children[2].textContent, /Auditor Two/);
+
+    facilitySelector.value = 'audit-1';
+    context.handleFacilitySelection();
+    assert.equal(context.selectedAdminAuditId, 'audit-1');
+    assert.equal(context.getCurrentAudit().auditorName, 'Auditor One');
 });
 
 test('restricts audit writes to auditor accounts', () => {
