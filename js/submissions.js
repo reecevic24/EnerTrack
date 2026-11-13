@@ -44,18 +44,8 @@ function isAdministrator() {
 function updateSubmissionStatus() {
     const status = document.getElementById('submissionStatus');
     if (!status || !currentUser) return;
-    const record = getCurrentAudit(false);
-    const submission = findSubmissionForAudit(record);
     renderInventoryTable();
-    if (!submission) {
-        status.textContent = 'Complete facility details and add equipment, then enter recommendations before submitting for approval.';
-        return;
-    }
-    const label = submission.status === 'approved' ? 'Approved' : submission.status === 'discarded' ? 'Discarded' : 'Pending administrator review';
-    const hasUnsubmittedChanges = auditHasUnsubmittedChanges(record, submission);
-    status.textContent = hasUnsubmittedChanges
-        ? `${label} — this audit has new local changes since submission. Submit again to send the latest version for approval.`
-        : `${label} — last submitted ${new Date(submission.submittedAt).toLocaleString()}.`;
+    status.textContent = 'To submit this audit for approval, add at least one equipment recommendation.';
 }
 
 function auditHasUnsubmittedChanges(record, submission) {
@@ -249,6 +239,7 @@ async function submitCurrentAudit() {
         });
         saveSharedSubmissions();
         clearAuditEntryFields();
+        resetFacilityEntryAfterSubmission();
         clearTimeout(userDataSaveTimers.recommendations);
         try {
             await apiRequest('/api/recommendations', {

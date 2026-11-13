@@ -57,6 +57,7 @@ test('serves the updated frontend, assets, and existing API bridge', async () =>
     assert.match(pageText, /Submitted details are read-only to administrators/);
     assert.match(pageText, /id="auditorRecommendationsPanel"/);
     assert.match(pageText, /id="submitAuditForApprovalButton"/);
+    assert.match(pageText, /To submit this audit for approval, add at least one equipment recommendation\./);
     assert.doesNotMatch(pageText, /id="floorArea"/);
     assert.match(pageText, /id="regPass"[^>]*minlength="6"/);
     assert.match(pageText, /id="authorName"[^>]*readonly/);
@@ -193,6 +194,38 @@ test('prevents administrator accounts from entering or submitting audits', async
 
     assert.equal(alerts.length, 2);
     assert.ok(alerts.every(message => /administrator accounts cannot/i.test(message)));
+});
+
+test('keeps the facility submission instruction unchanged after an audit is submitted', async () => {
+    const response = await fetch(`${baseUrl}/js/submissions.js`);
+    const status = { textContent: '' };
+    const context = {
+        currentUser: { role: 'auditor' },
+        document: { getElementById: id => id === 'submissionStatus' ? status : null },
+        renderInventoryTable() {}
+    };
+    vm.runInNewContext(await response.text(), context);
+
+    context.updateSubmissionStatus();
+    assert.equal(status.textContent, 'To submit this audit for approval, add at least one equipment recommendation.');
+});
+
+test('resets the facility entry screen without selecting the just-submitted audit', async () => {
+    const response = await fetch(`${baseUrl}/js/audits.js`);
+    const calls = [];
+    const context = {
+        selectedFacility: 'Science Block',
+        selectedHostelName: 'Hostel A'
+    };
+    vm.runInNewContext(await response.text(), context);
+    context.initializeFacilitySelector = () => calls.push('initialize');
+    context.loadActiveAudit = () => calls.push('load');
+    context.switchPage = page => calls.push(page);
+
+    context.resetFacilityEntryAfterSubmission();
+    assert.equal(context.selectedFacility, '');
+    assert.equal(context.selectedHostelName, '');
+    assert.deepEqual(calls, ['initialize', 'load', 'facilities']);
 });
 
 test('restricts audit writes to auditor accounts', () => {

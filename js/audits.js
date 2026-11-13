@@ -106,6 +106,14 @@ function initializeFacilitySelector() {
     const printSelector = document.getElementById('printFacilitySelector');
     selector.innerHTML = '';
     printSelector.innerHTML = '';
+    const facilityPlaceholder = document.createElement('option');
+    facilityPlaceholder.value = '';
+    facilityPlaceholder.textContent = 'Select a facility...';
+    selector.appendChild(facilityPlaceholder);
+    const printPlaceholder = document.createElement('option');
+    printPlaceholder.value = '';
+    printPlaceholder.textContent = 'Select a facility...';
+    printSelector.appendChild(printPlaceholder);
     const hostelAudits = audits
         .filter(audit => audit.facilityId === 'Hostels' && audit.hostelName)
         .sort((a, b) =>
@@ -185,6 +193,16 @@ function handlePrintFacilitySelection() {
 
 function handleFacilitySelection() {
     const selectedValue = document.getElementById('facilitySelector').value;
+    if (!selectedValue) {
+        selectedFacility = '';
+        selectedHostelName = '';
+        document.getElementById('printFacilitySelector').value = '';
+        document.getElementById('hostelNameGroup').style.display = 'none';
+        document.getElementById('hostelName').value = '';
+        loadActiveAudit();
+        updateSubmissionStatus();
+        return;
+    }
     if (selectedValue === ADD_HOSTEL_OPTION) {
         startNewHostel();
         return;
@@ -301,13 +319,14 @@ function loadActiveAudit() {
     const record = getCurrentAudit();
     inventory = record ? record.inventory : [];
     facilityInfo = record ? { ...createEmptyFacilityInfo(), ...record.facilityInfo } : createEmptyFacilityInfo();
+    if (!selectedFacility) facilityInfo.auditDate = '';
     if (currentUser) facilityInfo.authorName = currentUser.name;
     historicalData = record && Array.isArray(record.historicalData) ? record.historicalData : [];
     auditPhotos = record && Array.isArray(record.photos) ? record.photos : [];
     document.getElementById('facilityLocation').value = facilityInfo.facilityLocation || '';
     document.getElementById('authorName').value = facilityInfo.authorName || '';
     document.getElementById('energySources').value = facilityInfo.energySources || '';
-    document.getElementById('auditDate').value = facilityInfo.auditDate || new Date().toISOString().slice(0, 10);
+    document.getElementById('auditDate').value = facilityInfo.auditDate || (selectedFacility ? new Date().toISOString().slice(0, 10) : '');
     document.getElementById('auditPurpose').value = facilityInfo.auditPurpose || '';
     document.getElementById('auditScope').value = facilityInfo.scope || '';
     const energySettings = record && record.energySettings
@@ -320,6 +339,14 @@ function loadActiveAudit() {
     updateFacilityLabels();
     calculateAll();
     updateAuditReportDisplay();
+}
+
+function resetFacilityEntryAfterSubmission() {
+    selectedFacility = '';
+    selectedHostelName = '';
+    initializeFacilitySelector();
+    loadActiveAudit();
+    switchPage('facilities');
 }
 
 function updateFacilityLabels() {
