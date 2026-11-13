@@ -1,7 +1,7 @@
-function updateAuditReportDisplay() {
+function updateAuditReportDisplay(selectedRecord) {
     const report = document.getElementById('aiReportContent');
     if (!report) return;
-    const record = getCurrentAudit(false);
+    const record = selectedRecord || getCurrentAudit(false);
     report.textContent = record && record.report && record.reportVersion === AUDIT_REPORT_VERSION
         ? record.report
         : 'Select a facility with equipment, then generate its report.';

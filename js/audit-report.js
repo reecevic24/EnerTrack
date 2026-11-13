@@ -4,8 +4,22 @@ function generateAuditReport() {
         generateAllFacilitiesReport();
         return;
     }
-    if (!reportSelection || !selectedFacility) {
+    const selectedAudit = reportSelection ? findReportAudit(reportSelection) : null;
+    if (!reportSelection || (!selectedAudit && !selectedFacility)) {
         alert('Select a facility or All facilities before generating a report.');
+        return;
+    }
+    if (selectedAudit) {
+        selectedFacility = selectedAudit.facilityId;
+        selectedHostelName = selectedAudit.hostelName || '';
+        inventory = Array.isArray(selectedAudit.inventory) ? selectedAudit.inventory : [];
+        facilityInfo = { ...(selectedAudit.facilityInfo || {}) };
+        historicalData = Array.isArray(selectedAudit.historicalData) ? selectedAudit.historicalData : [];
+        auditPhotos = Array.isArray(selectedAudit.photos) ? selectedAudit.photos : [];
+        updateFacilityLabels();
+    }
+    if (isReportAdministrator() && selectedAudit && !inventory.length) {
+        generateEmptyAuditReport(selectedAudit);
         return;
     }
     if (selectedFacility === 'Hostels' && !selectedHostelName) {
@@ -13,7 +27,7 @@ function generateAuditReport() {
         return;
     }
 
-    const record = getCurrentAudit(false);
+    const record = selectedAudit || getCurrentAudit(false);
     if (!record || !Array.isArray(inventory) || !inventory.length) {
         alert('Add at least one equipment item to this facility audit before generating a report.');
         return;
@@ -37,8 +51,15 @@ function generateAuditReport() {
         return;
     }
 
-    const tariff = parseFloat(document.getElementById('tariffRate').value) || 12;
-    const emissionFactor = parseFloat(document.getElementById('emissionFactor').value) || 0.05;
+    const settings = record.energySettings || {};
+    const configuredTariff = Number(settings.tariffRate);
+    const configuredEmissionFactor = Number(settings.emissionFactor);
+    const tariff = Number.isFinite(configuredTariff)
+        ? configuredTariff
+        : (parseFloat(document.getElementById('tariffRate').value) || DEFAULT_TARIFF_RATE);
+    const emissionFactor = Number.isFinite(configuredEmissionFactor)
+        ? configuredEmissionFactor
+        : (parseFloat(document.getElementById('emissionFactor').value) || DEFAULT_EMISSION_FACTOR);
     const totals = calculateInventoryTotals(inventory, tariff, emissionFactor);
     const categoryTotals = new Map();
     inventory.forEach(item => {
@@ -196,22 +217,74 @@ function generateAuditReport() {
     record.reportVersion = AUDIT_REPORT_VERSION;
     record.reportGeneratedAt = new Date().toISOString();
     saveAudits();
-    updateAuditReportDisplay();
+    updateAuditReportDisplay(record);
+}
+
+function generateEmptyAuditReport(record) {
+    const format = value => Number(value).toLocaleString('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    });
+    const details = record.facilityInfo || {};
+    const detailLines = [
+        ['Auditor', details.authorName || record.auditorName],
+        ['Audit date', details.auditDate],
+        ['Location', details.facilityLocation],
+        ['Floor area', details.floorArea ? `${details.floorArea} m²` : ''],
+        ['Operating hours', details.operatingHours],
+        ['Energy sources', details.energySources],
+        ['Audit purpose', details.auditPurpose],
+        ['Background', details.background],
+        ['Scope', details.scope]
+    ].filter(([, value]) => value !== undefined && value !== null && String(value).trim())
+        .map(([label, value]) => `${label}: ${value}`);
+    const historical = Array.isArray(record.historicalData) ? record.historicalData : [];
+    const findings = String(record.findings || '').split(/\r?\n/).map(value => value.trim()).filter(Boolean);
+    const recommendations = Array.isArray(record.recommendations)
+        ? record.recommendations.map(value => String(value).trim()).filter(Boolean)
+        : [];
+    const label = reportAuditLabel(record);
+    const report = [
+        'ENERTRACK | FACILITY AUDIT STATUS REPORT',
+        `Generated: ${new Date().toLocaleString()}`,
+        `Facility: ${label}`,
+        `Audit status: ${record.id ? (record.status || 'draft') : 'No audit record saved'}`,
+        ...detailLines,
+        '',
+        'EQUIPMENT AND ENERGY ESTIMATE',
+        'No equipment has been recorded, so energy consumption, cost, and emissions cannot be estimated.',
+        ...(historical.length
+            ? ['', 'HISTORICAL ENERGY USE AND BILLS', ...historical.map(entry =>
+                `${formatBillingMonth(entry.month)} | ${format(entry.kwh)} kWh | KES ${format(entry.cost)}`)]
+            : ['', 'HISTORICAL ENERGY USE AND BILLS', 'No utility bill entries have been added to this facility.']),
+        '',
+        'AUDITOR FINDINGS',
+        ...(findings.length ? findings : ['No findings have been recorded.']),
+        '',
+        'AUDITOR RECOMMENDATIONS',
+        ...(recommendations.length ? recommendations : ['No recommendations have been recorded.']),
+        '',
+        'METHOD AND LIMITATIONS',
+        'This status report does not include an equipment-based estimate because the audit has no equipment entries.'
+    ].join('\n');
+    document.getElementById('aiReportContent').textContent = report;
+    updateAuditReportDisplay(record);
+    document.getElementById('aiReportContent').textContent = report;
 }
 
 function generateAllFacilitiesReport() {
     const activeAudit = getCurrentAudit(false);
-    if (activeAudit) {
+    if (!isReportAdministrator() && activeAudit) {
         activeAudit.inventory = inventory;
         activeAudit.facilityInfo = { ...facilityInfo };
         activeAudit.historicalData = historicalData;
         activeAudit.photos = auditPhotos;
     }
 
-    const reportAudits = audits
-        .filter(audit => Array.isArray(audit.inventory) && audit.inventory.length)
+    const reportAudits = (isReportAdministrator() ? getAdminReportAudits() : audits)
+        .filter(audit => isReportAdministrator() || (Array.isArray(audit.inventory) && audit.inventory.length))
         .slice()
-        .sort((a, b) => currentAuditLabel(a).localeCompare(currentAuditLabel(b), 'en', {
+        .sort((a, b) => reportAuditLabel(a).localeCompare(reportAuditLabel(b), 'en', {
             numeric: true,
             sensitivity: 'base'
         }));
@@ -227,10 +300,13 @@ function generateAllFacilitiesReport() {
     const totals = { monthlyKwh: 0, monthlyCost: 0, monthlyCarbon: 0, activePowerKw: 0 };
     const facilitySections = [];
     const photos = [];
+    const auditsWithEquipment = reportAudits.filter(audit =>
+        Array.isArray(audit.inventory) && audit.inventory.length
+    ).length;
 
     for (const audit of reportAudits) {
-        const label = currentAuditLabel(audit);
-        const items = audit.inventory;
+        const label = reportAuditLabel(audit);
+        const items = Array.isArray(audit.inventory) ? audit.inventory : [];
         if (items.some(item => !item
             || typeof item.name !== 'string' || !item.name.trim()
             || typeof item.category !== 'string' || !item.category.trim()
@@ -283,13 +359,17 @@ function generateAllFacilitiesReport() {
             : [];
         facilitySections.push([
             label,
-            `Audit status: ${audit.status || 'draft'}`,
+            `Audit status: ${audit.id ? (audit.status || 'draft') : 'No audit record saved'}`,
             ...detailLines,
             `Equipment entries: ${items.length}`,
-            `Estimated consumption: ${format(facilityTotals.monthlyKwh)} kWh/month`,
-            `Estimated cost: KES ${format(facilityTotals.monthlyCost)}/month`,
-            `Estimated emissions: ${format(facilityTotals.monthlyCarbon)} kg CO₂e/month`,
-            'Equipment:',
+            ...(items.length
+                ? [
+                    `Estimated consumption: ${format(facilityTotals.monthlyKwh)} kWh/month`,
+                    `Estimated cost: KES ${format(facilityTotals.monthlyCost)}/month`,
+                    `Estimated emissions: ${format(facilityTotals.monthlyCarbon)} kg CO₂e/month`
+                ]
+                : ['Energy estimate: Not available (no equipment recorded)']),
+            items.length ? 'Equipment:' : 'Equipment: none recorded',
             ...items.map(item =>
                 `  ${item.category} | ${item.name} | ${item.watts} W | quantity ${item.qty} | ${item.hours} hours/day | ${format(item.monthlyKwh)} kWh/month`
             ),
@@ -317,13 +397,18 @@ function generateAllFacilitiesReport() {
     const report = [
         'ENERTRACK | ALL-FACILITIES ENERGY AUDIT REPORT',
         `Generated: ${new Date().toLocaleString()}`,
-        `Facility audits included: ${reportAudits.length}`,
+        `Facilities and audit records included: ${reportAudits.length}`,
+        `Audit records with equipment: ${auditsWithEquipment}`,
         '',
-        'COMBINED SUMMARY',
-        `Estimated connected load: ${format(totals.activePowerKw)} kW`,
-        `Estimated consumption: ${format(totals.monthlyKwh)} kWh/month`,
-        `Estimated cost: KES ${format(totals.monthlyCost)}/month`,
-        `Estimated emissions: ${format(totals.monthlyCarbon)} kg CO₂e/month`,
+        'COMBINED SUMMARY (audits with equipment)',
+        ...(auditsWithEquipment
+            ? [
+                `Estimated connected load: ${format(totals.activePowerKw)} kW`,
+                `Estimated consumption: ${format(totals.monthlyKwh)} kWh/month`,
+                `Estimated cost: KES ${format(totals.monthlyCost)}/month`,
+                `Estimated emissions: ${format(totals.monthlyCarbon)} kg CO₂e/month`
+            ]
+            : ['No combined energy estimates are available because no audit has equipment recorded.']),
         '',
         'FACILITY DETAILS AND EQUIPMENT',
         ...facilitySections.flat(),

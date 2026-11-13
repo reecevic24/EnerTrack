@@ -9,11 +9,31 @@ const vm = require('node:vm');
 const repositoryRoot = path.resolve(__dirname, '..');
 
 function createReportContext() {
+    const reportOptions = [];
     const nodes = {
-        reportFacilitySelector: { value: '__all_facilities__' },
+        reportFacilitySelector: {
+            _value: '__all_facilities__',
+            options: reportOptions,
+            set innerHTML(value) {
+                if (value === '') this.options.length = 0;
+            },
+            get innerHTML() {
+                return '';
+            },
+            set value(value) {
+                this._value = value;
+            },
+            get value() {
+                return this._value;
+            },
+            appendChild(option) {
+                this.options.push(option);
+            }
+        },
         facilitySelector: { value: '' },
         hostelName: { value: '' },
         hostelNameGroup: { style: {} },
+        generateAuditReportButton: { disabled: false },
         aiReportContent: { textContent: '' },
         reportPhotoGallery: {
             innerHTML: '',
@@ -38,13 +58,20 @@ function createReportContext() {
         },
         selectedFacility: '',
         selectedHostelName: '',
+        currentUser: null,
+        facilityNames: ['Library', 'Hostels', 'Annex'],
+        createDefaultEnergySettings() {
+            return { tariffRate: 12, emissionFactor: 0.05 };
+        },
         DEFAULT_TARIFF_RATE: 12,
         DEFAULT_EMISSION_FACTOR: 0.05,
         audits: [
             {
+                id: 'library-audit',
                 key: 'Library',
                 facilityId: 'Library',
                 status: 'approved',
+                auditorName: 'Auditor One',
                 facilityInfo: { authorName: 'Auditor One' },
                 energySettings: { tariffRate: 10, emissionFactor: 0.1 },
                 inventory: [{ category: 'Lighting', name: 'LED', watts: 100, qty: 2, hours: 10 }],
@@ -53,9 +80,11 @@ function createReportContext() {
                 recommendations: ['Replace remaining fluorescent lamps.']
             },
             {
+                id: 'hostel-audit',
                 key: 'Hostels:hostel a',
                 facilityId: 'Hostels',
                 hostelName: 'Hostel A',
+                auditorName: 'Auditor Two',
                 energySettings: { tariffRate: 20, emissionFactor: 0.05 },
                 inventory: [{ category: 'Fans', name: 'Ceiling fan', watts: 200, qty: 1, hours: 5 }],
                 historicalData: [],
@@ -90,7 +119,7 @@ test('all-facilities report combines facility estimates and includes individual 
     context.generateAuditReport();
 
     assert.match(nodes.aiReportContent.textContent, /ALL-FACILITIES ENERGY AUDIT REPORT/);
-    assert.match(nodes.aiReportContent.textContent, /Facility audits included: 2/);
+    assert.match(nodes.aiReportContent.textContent, /Facilities and audit records included: 2/);
     assert.match(nodes.aiReportContent.textContent, /Estimated consumption: 90\.00 kWh\/month/);
     assert.match(nodes.aiReportContent.textContent, /Estimated cost: KES 1,200\.00\/month/);
     assert.match(nodes.aiReportContent.textContent, /Library/);
@@ -104,6 +133,97 @@ test('report page provides a facility selector and a print-facility selector', (
     assert.match(html, /id="reportFacilitySelector"/);
     assert.match(html, /id="generateAuditReportButton"/);
     assert.match(html, /id="printFacilitySelector"/);
+});
+
+test('administrator report selector lists every audit and available facility distinctly', () => {
+    const { context, nodes } = createReportContext();
+    context.currentUser = { role: 'admin' };
+    context.audits.push({
+        id: 'second-library-audit',
+        key: 'Library',
+        facilityId: 'Library',
+        auditorName: 'Auditor Three',
+        inventory: [{ category: 'Fans', name: 'Desk fan', watts: 30, qty: 1, hours: 2 }],
+        facilityInfo: {},
+        historicalData: [],
+        photos: [],
+        recommendations: []
+    });
+    context.audits.push({
+        id: null,
+        key: 'Annex',
+        facilityId: 'Annex',
+        inventory: [],
+        facilityInfo: {},
+        historicalData: [],
+        photos: [],
+        recommendations: []
+    });
+
+    context.initializeReportFacilitySelector();
+
+    const values = nodes.reportFacilitySelector.options.map(option => option.value);
+    const labels = nodes.reportFacilitySelector.options.map(option => option.textContent);
+    assert.ok(values.includes('audit:library-audit'));
+    assert.ok(values.includes('audit:second-library-audit'));
+    assert.ok(values.includes('facility:Annex'));
+    assert.ok(labels.includes('Library — Auditor One'));
+    assert.ok(labels.includes('Library — Auditor Three'));
+    assert.ok(labels.includes('All facilities and audits'));
+    assert.equal(nodes.generateAuditReportButton.disabled, false);
+});
+
+test('administrator all-facilities report covers every audit and flags facilities with no data', () => {
+    const { context, nodes } = createReportContext();
+    context.currentUser = { role: 'admin' };
+
+    context.generateAuditReport();
+
+    assert.match(nodes.aiReportContent.textContent, /Facilities and audit records included: 3/);
+    assert.match(nodes.aiReportContent.textContent, /Audit records with equipment: 2/);
+    assert.match(nodes.aiReportContent.textContent, /Annex/);
+    assert.match(nodes.aiReportContent.textContent, /No audit record saved/);
+    assert.match(nodes.aiReportContent.textContent, /Energy estimate: Not available \(no equipment recorded\)/);
+});
+
+test('administrator can generate a report for the audit selected by its unique ID', () => {
+    const { context, nodes } = createReportContext();
+    context.currentUser = { role: 'admin', name: 'Admin' };
+    context.audits.push({
+        id: 'second-library-audit',
+        key: 'Library',
+        facilityId: 'Library',
+        status: 'submitted',
+        auditorName: 'Auditor Three',
+        auditorEmail: 'auditor.three@example.com',
+        facilityInfo: { authorName: 'Auditor Three' },
+        energySettings: { tariffRate: 12, emissionFactor: 0.05 },
+        inventory: [{ category: 'Fans', name: 'Desk fan', watts: 30, qty: 1, hours: 2 }],
+        historicalData: [],
+        photos: [],
+        recommendations: []
+    });
+    context.updateUniversitySummary = () => {};
+    context.updateFacilityLabels = () => {};
+    context.updateCharts = () => {};
+    context.getUniversityEnergySummary = () => ({
+        summaries: [],
+        totals: { kwh: 0, cost: 0, carbon: 0 }
+    });
+    context.saveAudits = () => {};
+    context.updateAuditReportDisplay = record => {
+        nodes.aiReportContent.textContent = record.report;
+    };
+    context.loadRecommendations = [];
+    context.AUDIT_REPORT_VERSION = 5;
+
+    nodes.reportFacilitySelector.value = 'audit:second-library-audit';
+    context.handleReportFacilitySelection();
+    context.generateAuditReport();
+
+    assert.match(nodes.aiReportContent.textContent, /Desk fan/);
+    assert.match(nodes.aiReportContent.textContent, /Auditor Three/);
+    assert.doesNotMatch(nodes.aiReportContent.textContent, /LED/);
 });
 
 test('selecting a named hostel report activates that hostel audit', () => {

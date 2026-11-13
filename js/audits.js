@@ -1,4 +1,39 @@
 const ALL_FACILITIES_REPORT = '__all_facilities__';
+let selectedReportAuditValue = '';
+
+function isReportAdministrator() {
+    return !!currentUser && currentUser.role === 'admin';
+}
+
+function reportAuditOptionValue(audit) {
+    return audit.id ? `audit:${audit.id}` : `facility:${audit.key}`;
+}
+
+function getAdminReportAudits() {
+    const reportAudits = audits.slice();
+    facilityNames.forEach(name => {
+        const alreadyListed = reportAudits.some(audit =>
+            String(audit.facilityId).toLocaleLowerCase() === name.toLocaleLowerCase()
+        );
+        if (!alreadyListed) {
+            reportAudits.push({
+                id: null,
+                key: name,
+                facilityId: name,
+                hostelName: '',
+                status: 'draft',
+                facilityInfo: {},
+                inventory: [],
+                historicalData: [],
+                photos: [],
+                energySettings: createDefaultEnergySettings(),
+                findings: '',
+                recommendations: []
+            });
+        }
+    });
+    return reportAudits;
+}
 
 function currentAuditKey(facility = selectedFacility, hostelName = selectedHostelName) {
     if (facility === 'Hostels') {
@@ -13,6 +48,28 @@ function currentAuditLabel(record) {
         : record.facilityId;
 }
 
+function reportAuditLabel(record) {
+    const label = currentAuditLabel(record);
+    if (!isReportAdministrator() || !record.id) return label;
+    const owner = record.auditorName || record.auditorEmail;
+    if (!owner) return label;
+    return `${label} — ${record.auditorName || owner}${
+        record.auditorName && record.auditorEmail ? ` (${record.auditorEmail})` : ''
+    }`;
+}
+
+function findReportAudit(selection) {
+    if (selection.startsWith('audit:')) {
+        return audits.find(audit => String(audit.id) === selection.slice('audit:'.length));
+    }
+    if (selection.startsWith('facility:')) {
+        const key = selection.slice('facility:'.length);
+        const records = isReportAdministrator() ? getAdminReportAudits() : audits;
+        return records.find(audit => audit.key === key);
+    }
+    return audits.find(audit => audit.key === selection);
+}
+
 function normalizeHostelName(name) {
     const trimmedName = String(name || '').trim();
     return ['hostel A', 'hostel B', 'ngeria hostels'].includes(trimmedName.toLocaleLowerCase())
@@ -23,40 +80,55 @@ function normalizeHostelName(name) {
 function initializeReportFacilitySelector() {
     const selector = document.getElementById('reportFacilitySelector');
     if (!selector) return;
+    const previousSelection = selectedReportAuditValue || selector.value;
     selector.innerHTML = '';
     const placeholder = document.createElement('option');
     placeholder.value = '';
-    placeholder.textContent = audits.some(audit => Array.isArray(audit.inventory) && audit.inventory.length)
+    const reportAudits = (isReportAdministrator() ? getAdminReportAudits() : audits)
+        .filter(audit => isReportAdministrator() || (Array.isArray(audit.inventory) && audit.inventory.length))
+        .slice()
+        .sort((a, b) => reportAuditLabel(a).localeCompare(reportAuditLabel(b), 'en', {
+            numeric: true,
+            sensitivity: 'base'
+        }));
+    placeholder.textContent = reportAudits.length
         ? 'Select a facility...'
         : 'No audits with equipment available';
     selector.appendChild(placeholder);
 
-    const reportAudits = audits
-        .filter(audit => Array.isArray(audit.inventory) && audit.inventory.length)
-        .slice()
-        .sort((a, b) => currentAuditLabel(a).localeCompare(currentAuditLabel(b), 'en', {
-            numeric: true,
-            sensitivity: 'base'
-        }));
     if (reportAudits.length) {
         const allFacilities = document.createElement('option');
         allFacilities.value = ALL_FACILITIES_REPORT;
-        allFacilities.textContent = 'All facilities';
+        allFacilities.textContent = isReportAdministrator() ? 'All facilities and audits' : 'All facilities';
         selector.appendChild(allFacilities);
     }
     reportAudits.forEach(audit => {
         const option = document.createElement('option');
-        option.value = audit.key;
-        option.textContent = currentAuditLabel(audit);
+        option.value = reportAuditOptionValue(audit);
+        option.textContent = reportAuditLabel(audit);
         selector.appendChild(option);
     });
 
+    const previousSelectionExists = reportAudits.some(audit =>
+        reportAuditOptionValue(audit) === previousSelection
+    );
     const activeAudit = getCurrentAudit(false);
-    selector.value = activeAudit && activeAudit.inventory.length ? activeAudit.key : '';
+    const activeAuditValue = activeAudit &&
+        (isReportAdministrator() || activeAudit.inventory.length)
+        ? reportAuditOptionValue(activeAudit)
+        : '';
+    selector.value = previousSelectionExists
+        ? previousSelection
+        : (previousSelection === ALL_FACILITIES_REPORT && reportAudits.length
+            ? ALL_FACILITIES_REPORT
+            : activeAuditValue);
+    selectedReportAuditValue = selector.value;
     document.getElementById('generateAuditReportButton').disabled = reportAudits.length === 0;
 }
 
 function normalizeHostelAudits() {
+    if (isReportAdministrator()) return;
+
     const normalizedAudits = [];
     const hostelAuditsByKey = new Map();
 
@@ -226,16 +298,22 @@ function handlePrintFacilitySelection() {
 
 function handleReportFacilitySelection() {
     const selection = document.getElementById('reportFacilitySelector').value;
+    selectedReportAuditValue = selection;
     if (selection === ALL_FACILITIES_REPORT) {
         document.getElementById('aiReportContent').textContent =
             'All facilities selected. Generate the comprehensive report to view combined results.';
         document.getElementById('reportPhotoGallery').innerHTML = '';
         return;
     }
-    const record = audits.find(audit => audit.key === selection &&
-        Array.isArray(audit.inventory) && audit.inventory.length);
+    const record = findReportAudit(selection);
+    const canSelectEmptyAudit = isReportAdministrator();
     if (!record) {
-        if (selection) alert('Select a facility audit that contains equipment before generating a report.');
+        if (selection) alert('Select a facility audit available to your account.');
+        initializeReportFacilitySelector();
+        return;
+    }
+    if (!canSelectEmptyAudit && (!Array.isArray(record.inventory) || !record.inventory.length)) {
+        alert('Select a facility audit that contains equipment before generating a report.');
         initializeReportFacilitySelector();
         return;
     }
@@ -244,6 +322,14 @@ function handleReportFacilitySelection() {
     document.getElementById('facilitySelector').value = record.key;
     document.getElementById('hostelName').value = selectedHostelName;
     document.getElementById('hostelNameGroup').style.display = selectedFacility === 'Hostels' ? 'flex' : 'none';
+    if (canSelectEmptyAudit) {
+        const report = document.getElementById('aiReportContent');
+        report.textContent = Array.isArray(record.inventory) && record.inventory.length
+            ? `${reportAuditLabel(record)} selected. Generate its report to view the audit details.`
+            : `${reportAuditLabel(record)} has no equipment recorded. Generate a report to view its current audit status.`;
+        document.getElementById('reportPhotoGallery').innerHTML = '';
+        return;
+    }
     loadActiveAudit();
 }
 
