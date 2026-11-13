@@ -192,6 +192,7 @@
         <div id="pageFacilities" class="page-view">
             <section class="card-panel facility-info-card">
                 <h4>🏢 Facilities & Audit Details</h4>
+                <p id="administratorFacilityNotice" class="facility-hint" hidden>Administrator view: facility audit information is read-only. Select a facility to review its details.</p>
                 <div class="facility-picker">
                     <div class="form-group">
                         <label for="facilitySelector">Facility</label>
@@ -226,6 +227,12 @@
 
             <section class="card-panel load-analysis-section">
                 <h4>⚡ Equipment</h4>
+                <div id="adminFacilityInventory" class="table-responsive" hidden>
+                    <table>
+                        <thead><tr><th>Category</th><th>Equipment Name</th><th>Power Rating</th><th>Quantity</th><th>Hours/Day</th></tr></thead>
+                        <tbody id="adminFacilityInventoryBody"></tbody>
+                    </table>
+                </div>
                 <form id="auditForm" onsubmit="event.preventDefault(); addEquipment();">
                     <div class="form-grid">
                         <div class="form-group">
@@ -260,7 +267,7 @@
                 </div>
                 <div class="table-responsive">
                     <table>
-                        <thead><tr><th>Month</th><th>Consumption (kWh)</th><th>Bill (KES)</th><th>Action</th></tr></thead>
+                        <thead><tr><th>Month</th><th>Consumption (kWh)</th><th>Bill (KES)</th><th id="historyActionHeader">Action</th></tr></thead>
                         <tbody id="historyBody"><tr><td colspan="4" class="empty-state">No historical bill data entered.</td></tr></tbody>
                     </table>
                 </div>
@@ -268,13 +275,13 @@
             <section class="card-panel">
                 <h4>📷 Auditor site photos</h4>
                 <p class="facility-hint">Add equipment, meter, or facility photos as supporting evidence.</p>
-                <div class="form-group">
+                <div id="auditPhotoUpload" class="form-group">
                     <label for="auditPhotos">Choose photos</label>
                     <input type="file" id="auditPhotos" accept="image/*" multiple onchange="handleAuditPhotos(this.files)">
                 </div>
                 <div id="auditPhotoGallery" class="audit-photo-grid"></div>
             </section>
-            <section class="card-panel">
+            <section id="auditSubmissionPanel" class="card-panel">
                 <h4>📨 Auditor submission</h4>
                 <p id="submissionStatus" class="facility-hint">To submit this audit for approval, add at least one equipment recommendation.
                 </p>

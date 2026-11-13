@@ -1,4 +1,5 @@
 function handleAuditSettingChange() {
+    if (isAdministrator()) return;
     const record = getCurrentAudit(false);
     if (record) {
         record.energySettings = readEnergySettingsFromForm();

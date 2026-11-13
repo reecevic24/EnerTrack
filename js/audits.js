@@ -190,6 +190,10 @@ function createEmptyFacilityInfo() {
 }
 
 function getCurrentAudit(create = true) {
+    if (currentUser && currentUser.role === 'admin') {
+        const selectedId = typeof selectedAdminAuditId === 'undefined' ? '' : selectedAdminAuditId;
+        return audits.find(audit => audit.id && String(audit.id) === String(selectedId)) || null;
+    }
     const key = currentAuditKey();
     if (!key) return null;
     let record = audits.find(audit => audit.key === key);
@@ -245,7 +249,7 @@ function initializeFacilitySelector() {
             const addHostelOption = document.createElement('option');
             addHostelOption.value = ADD_HOSTEL_OPTION;
             addHostelOption.textContent = 'Add Hostel...';
-            hostelGroup.appendChild(addHostelOption);
+            if (!isAdministrator()) hostelGroup.appendChild(addHostelOption);
             selector.appendChild(hostelGroup);
             const printHostelGroup = document.createElement('optgroup');
             printHostelGroup.label = 'Hostels';
@@ -338,6 +342,7 @@ function handleFacilitySelection() {
     if (!selectedValue) {
         selectedFacility = '';
         selectedHostelName = '';
+        selectedAdminAuditId = '';
         document.getElementById('printFacilitySelector').value = '';
         document.getElementById('hostelNameGroup').style.display = 'none';
         document.getElementById('hostelName').value = '';
@@ -352,6 +357,10 @@ function handleFacilitySelection() {
     const hostelAudit = audits.find(audit => audit.key === selectedValue && audit.facilityId === 'Hostels');
     selectedFacility = hostelAudit ? 'Hostels' : selectedValue;
     selectedHostelName = hostelAudit ? hostelAudit.hostelName : '';
+    if (isAdministrator()) {
+        const selectedAudit = hostelAudit || audits.find(audit => audit.key === selectedValue && audit.id);
+        selectedAdminAuditId = selectedAudit ? String(selectedAudit.id) : '';
+    }
     document.getElementById('printFacilitySelector').value = selectedFacility === 'Hostels' && selectedHostelName
         ? currentAuditKey(selectedFacility, selectedHostelName)
         : selectedFacility;
@@ -366,6 +375,7 @@ function handleFacilitySelection() {
 }
 
 function startNewHostel() {
+    if (isAdministrator()) return;
     const currentRecord = getCurrentAudit(false);
     if (currentRecord) {
         currentRecord.inventory = inventory;
@@ -384,6 +394,7 @@ function startNewHostel() {
 }
 
 function selectHostelAudit() {
+    if (isAdministrator()) return;
     const input = document.getElementById('hostelName');
     const previousHostelName = selectedHostelName;
     const correctedHostelName = normalizeHostelName(input.value);
@@ -433,8 +444,9 @@ function selectHostelAudit() {
 }
 
 function saveFacilityDetails() {
+    if (isAdministrator()) return;
     facilityInfo.facilityLocation = document.getElementById('facilityLocation').value.trim();
-    if (currentUser) facilityInfo.authorName = currentUser.name;
+    if (currentUser && !isAdministrator()) facilityInfo.authorName = currentUser.name;
     facilityInfo.energySources = document.getElementById('energySources').value.trim();
     facilityInfo.auditDate = document.getElementById('auditDate').value;
     facilityInfo.auditPurpose = document.getElementById('auditPurpose').value.trim();
@@ -478,10 +490,61 @@ function loadActiveAudit() {
     document.getElementById('emissionFactor').value = energySettings.emissionFactor;
     renderHistoricalData(historicalData);
     renderAuditPhotos(auditPhotos);
+    renderAdminFacilityInventory();
+    setFacilityReadOnly();
     updateFacilityLabels();
     calculateAll();
     updateAuditReportDisplay();
     initializeReportFacilitySelector();
+}
+
+function renderAdminFacilityInventory() {
+    const container = document.getElementById('adminFacilityInventory');
+    const body = document.getElementById('adminFacilityInventoryBody');
+    if (!container || !body) return;
+    const adminView = isAdministrator();
+    container.hidden = !adminView;
+    if (!adminView) return;
+
+    body.innerHTML = '';
+    if (!inventory.length) {
+        const row = document.createElement('tr');
+        const cell = document.createElement('td');
+        cell.colSpan = 5;
+        cell.className = 'empty-state';
+        cell.textContent = 'No equipment recorded for this facility.';
+        row.appendChild(cell);
+        body.appendChild(row);
+        return;
+    }
+    inventory.forEach(item => {
+        const row = document.createElement('tr');
+        [item.category || 'General', item.name, `${item.watts} W`, item.qty, `${item.hours} hrs`]
+            .forEach(value => {
+                const cell = document.createElement('td');
+                cell.textContent = value;
+                row.appendChild(cell);
+            });
+        body.appendChild(row);
+    });
+}
+
+function setFacilityReadOnly() {
+    const adminView = isAdministrator();
+    const page = document.getElementById('pageFacilities');
+    if (!page) return;
+    const facilitySelector = document.getElementById('facilitySelector');
+    page.querySelectorAll('input, select, textarea, button').forEach(control => {
+        control.disabled = adminView && control !== facilitySelector;
+    });
+    if (facilitySelector) facilitySelector.disabled = false;
+    document.getElementById('administratorFacilityNotice').hidden = !adminView;
+    document.getElementById('auditForm').hidden = adminView;
+    document.getElementById('auditPhotoUpload').hidden = adminView;
+    document.getElementById('auditSubmissionPanel').hidden = adminView;
+    document.getElementById('historyActionHeader').hidden = adminView;
+    const hostelSaveButton = document.querySelector('#hostelNameGroup button');
+    if (hostelSaveButton) hostelSaveButton.hidden = adminView;
 }
 
 function resetFacilityEntryAfterSubmission() {
@@ -604,7 +667,10 @@ async function loadUserData() {
         }
     });
 
-    const populatedAudit = audits.find(audit => audit.inventory.length > 0);
+    const populatedAudit = isAdministrator()
+        ? audits.find(audit => audit.id) || null
+        : audits.find(audit => audit.inventory.length > 0);
+    selectedAdminAuditId = isAdministrator() && populatedAudit ? String(populatedAudit.id) : '';
     selectedFacility = populatedAudit ? populatedAudit.facilityId : 'Admin';
     selectedHostelName = populatedAudit && populatedAudit.facilityId === 'Hostels' ? populatedAudit.hostelName : '';
     initializeFacilitySelector();

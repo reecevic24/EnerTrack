@@ -252,7 +252,7 @@ test('restricts audit writes to auditor accounts', () => {
     assert.equal(nextCalled, true);
 });
 
-test('prevents administrator navigation to audit-entry pages', async () => {
+test('allows administrators to view facilities but prevents audit entry', async () => {
     const response = await fetch(`${baseUrl}/js/auth.js`);
     const activated = [];
     const context = {
@@ -266,11 +266,12 @@ test('prevents administrator navigation to audit-entry pages', async () => {
     vm.runInNewContext(await response.text(), context);
 
     context.switchPage('facilities');
+    assert.deepEqual(activated, ['pageFacilities', 'tabFacilities']);
     context.switchPage('measures');
-    assert.deepEqual(activated, []);
+    assert.deepEqual(activated, ['pageFacilities', 'tabFacilities']);
 
     context.switchPage('university');
-    assert.deepEqual(activated, ['pageUniversity', 'tabUniversity']);
+    assert.deepEqual(activated, ['pageFacilities', 'tabFacilities', 'pageUniversity', 'tabUniversity']);
 });
 
 test('exposes the personal dashboard loader to the sign-in flow', async () => {

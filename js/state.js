@@ -12,6 +12,7 @@ let actualEquipmentChartInstance = null;
 let recommendedEquipmentChartInstance = null;
 let selectedFacility = 'Admin';
 let selectedHostelName = '';
+let selectedAdminAuditId = '';
 const ADD_HOSTEL_OPTION = '__add_hostel__';
 let facilityInfo = { facilityLocation: '', authorName: '' };
 let historicalData = [];

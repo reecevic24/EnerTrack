@@ -15,7 +15,7 @@ function renderHistoricalData(entries) {
     if (!entries.length) {
         const row = document.createElement('tr');
         const cell = document.createElement('td');
-        cell.colSpan = 4;
+        cell.colSpan = isAdministrator() ? 3 : 4;
         cell.className = 'empty-state';
         cell.textContent = 'No historical bill data entered.';
         row.appendChild(cell);
@@ -30,22 +30,25 @@ function renderHistoricalData(entries) {
             row.appendChild(cell);
         });
         const action = document.createElement('td');
-        const remove = document.createElement('button');
-        remove.type = 'button';
-        remove.className = 'btn-delete';
-        remove.textContent = 'Remove';
-        remove.addEventListener('click', () => {
-            historicalData.splice(index, 1);
-            renderHistoricalData(historicalData);
-            persistCurrentAuditEvidence();
-        });
-        action.appendChild(remove);
-        row.appendChild(action);
+        if (!isAdministrator()) {
+            const remove = document.createElement('button');
+            remove.type = 'button';
+            remove.className = 'btn-delete';
+            remove.textContent = 'Remove';
+            remove.addEventListener('click', () => {
+                historicalData.splice(index, 1);
+                renderHistoricalData(historicalData);
+                persistCurrentAuditEvidence();
+            });
+            action.appendChild(remove);
+            row.appendChild(action);
+        }
         body.appendChild(row);
     });
 }
 
 function addHistoricalEntry() {
+    if (isAdministrator()) return;
     const month = document.getElementById('historyMonth').value;
     const kwh = Number(document.getElementById('historyKwh').value);
     const cost = Number(document.getElementById('historyCost').value);
@@ -77,16 +80,19 @@ function renderAuditPhotos(photos) {
         image.alt = photo.name || `Audit photo ${index + 1}`;
         const caption = document.createElement('figcaption');
         caption.textContent = photo.name || `Audit photo ${index + 1}`;
-        const remove = document.createElement('button');
-        remove.type = 'button';
-        remove.className = 'btn-delete';
-        remove.textContent = 'Remove photo';
-        remove.addEventListener('click', () => {
-            auditPhotos.splice(index, 1);
-            renderAuditPhotos(auditPhotos);
-            persistCurrentAuditEvidence();
-        });
-        figure.append(image, caption, remove);
+        figure.append(image, caption);
+        if (!isAdministrator()) {
+            const remove = document.createElement('button');
+            remove.type = 'button';
+            remove.className = 'btn-delete';
+            remove.textContent = 'Remove photo';
+            remove.addEventListener('click', () => {
+                auditPhotos.splice(index, 1);
+                renderAuditPhotos(auditPhotos);
+                persistCurrentAuditEvidence();
+            });
+            figure.appendChild(remove);
+        }
         gallery.appendChild(figure);
     });
 }
@@ -117,6 +123,7 @@ function resizeAuditPhoto(file) {
 }
 
 async function handleAuditPhotos(files) {
+    if (isAdministrator()) return;
     const selectedFiles = Array.from(files || []);
     if (!selectedFiles.length) return;
     if (selectedFiles.some(file => !file.type.startsWith('image/'))) {

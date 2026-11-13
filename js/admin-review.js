@@ -45,12 +45,16 @@ function renderProfiles() {
     document.getElementById('adminAccountsPanel').style.display = admin ? 'block' : 'none';
     document.getElementById('adminReviewPanel').style.display = admin ? 'block' : 'none';
     document.getElementById('mySubmissionPanel').hidden = admin;
-    document.getElementById('tabFacilities').hidden = admin;
+    document.getElementById('tabFacilities').hidden = false;
     document.getElementById('tabMeasures').hidden = admin;
-    document.getElementById('dashboardFacilitiesButton').hidden = admin;
+    document.getElementById('dashboardFacilitiesButton').hidden = false;
+    document.getElementById('dashboardFacilitiesButton').textContent = admin
+        ? 'View Facilities'
+        : 'Open Facilities & Equipment';
     document.getElementById('dashboardFacilityHint').textContent = admin
-        ? 'Monitor approved auditor submissions and the university-wide energy totals from this dashboard.'
+        ? 'Review facility audit information and monitor university-wide energy totals from this dashboard.'
         : 'Add equipment to a facility audit to include its measured consumption in the university total.';
+    setFacilityReadOnly();
     const accountListPanel = document.getElementById('accountListPanel');
     accountListPanel.hidden = !admin || !activeAccountView;
     document.getElementById('addAdminsButton').setAttribute('aria-expanded', String(activeAccountView === 'auditors'));
