@@ -1,3 +1,5 @@
+const ALL_FACILITIES_REPORT = '__all_facilities__';
+
 function currentAuditKey(facility = selectedFacility, hostelName = selectedHostelName) {
     if (facility === 'Hostels') {
         return hostelName.trim() ? `Hostels:${hostelName.trim().toLocaleLowerCase()}` : '';
@@ -16,6 +18,42 @@ function normalizeHostelName(name) {
     return ['hostel A', 'hostel B', 'ngeria hostels'].includes(trimmedName.toLocaleLowerCase())
         ? 'NGERIA HOSTELS'
         : trimmedName;
+}
+
+function initializeReportFacilitySelector() {
+    const selector = document.getElementById('reportFacilitySelector');
+    if (!selector) return;
+    selector.innerHTML = '';
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = audits.some(audit => Array.isArray(audit.inventory) && audit.inventory.length)
+        ? 'Select a facility...'
+        : 'No audits with equipment available';
+    selector.appendChild(placeholder);
+
+    const reportAudits = audits
+        .filter(audit => Array.isArray(audit.inventory) && audit.inventory.length)
+        .slice()
+        .sort((a, b) => currentAuditLabel(a).localeCompare(currentAuditLabel(b), 'en', {
+            numeric: true,
+            sensitivity: 'base'
+        }));
+    if (reportAudits.length) {
+        const allFacilities = document.createElement('option');
+        allFacilities.value = ALL_FACILITIES_REPORT;
+        allFacilities.textContent = 'All facilities';
+        selector.appendChild(allFacilities);
+    }
+    reportAudits.forEach(audit => {
+        const option = document.createElement('option');
+        option.value = audit.key;
+        option.textContent = currentAuditLabel(audit);
+        selector.appendChild(option);
+    });
+
+    const activeAudit = getCurrentAudit(false);
+    selector.value = activeAudit && activeAudit.inventory.length ? activeAudit.key : '';
+    document.getElementById('generateAuditReportButton').disabled = reportAudits.length === 0;
 }
 
 function normalizeHostelAudits() {
@@ -137,6 +175,15 @@ function initializeFacilitySelector() {
             addHostelOption.textContent = 'Add Hostel...';
             hostelGroup.appendChild(addHostelOption);
             selector.appendChild(hostelGroup);
+            const printHostelGroup = document.createElement('optgroup');
+            printHostelGroup.label = 'Hostels';
+            hostelAudits.forEach(audit => {
+                const namedHostelOption = document.createElement('option');
+                namedHostelOption.value = audit.key;
+                namedHostelOption.textContent = audit.hostelName;
+                printHostelGroup.appendChild(namedHostelOption);
+            });
+            printSelector.appendChild(printHostelGroup);
             return;
         }
 
@@ -144,25 +191,10 @@ function initializeFacilitySelector() {
         option.value = name;
         option.textContent = name;
         selector.appendChild(option);
-    });
-    facilityNames.forEach(name => {
-        if (name === 'Hostels') {
-            const hostelGroup = document.createElement('optgroup');
-            hostelGroup.label = 'Hostels';
-            hostelAudits.forEach(audit => {
-                const namedHostelOption = document.createElement('option');
-                namedHostelOption.value = audit.key;
-                namedHostelOption.textContent = audit.hostelName;
-                hostelGroup.appendChild(namedHostelOption);
-            });
-            printSelector.appendChild(hostelGroup);
-            return;
-        }
-
-        const option = document.createElement('option');
-        option.value = name;
-        option.textContent = name;
-        printSelector.appendChild(option);
+        const printOption = document.createElement('option');
+        printOption.value = name;
+        printOption.textContent = name;
+        printSelector.appendChild(printOption);
     });
     const activeValue = selectedFacility === 'Hostels'
         ? (selectedHostelName ? currentAuditKey() : ADD_HOSTEL_OPTION)
@@ -173,6 +205,7 @@ function initializeFacilitySelector() {
         : activeValue;
     document.getElementById('hostelNameGroup').style.display = selectedFacility === 'Hostels' ? 'flex' : 'none';
     document.getElementById('hostelName').value = selectedHostelName;
+    initializeReportFacilitySelector();
 }
 
 function handlePrintFacilitySelection() {
@@ -189,6 +222,29 @@ function handlePrintFacilitySelection() {
     }
     document.getElementById('facilitySelector').value = printSelection;
     handleFacilitySelection();
+}
+
+function handleReportFacilitySelection() {
+    const selection = document.getElementById('reportFacilitySelector').value;
+    if (selection === ALL_FACILITIES_REPORT) {
+        document.getElementById('aiReportContent').textContent =
+            'All facilities selected. Generate the comprehensive report to view combined results.';
+        document.getElementById('reportPhotoGallery').innerHTML = '';
+        return;
+    }
+    const record = audits.find(audit => audit.key === selection &&
+        Array.isArray(audit.inventory) && audit.inventory.length);
+    if (!record) {
+        if (selection) alert('Select a facility audit that contains equipment before generating a report.');
+        initializeReportFacilitySelector();
+        return;
+    }
+    selectedFacility = record.facilityId;
+    selectedHostelName = record.hostelName || '';
+    document.getElementById('facilitySelector').value = record.key;
+    document.getElementById('hostelName').value = selectedHostelName;
+    document.getElementById('hostelNameGroup').style.display = selectedFacility === 'Hostels' ? 'flex' : 'none';
+    loadActiveAudit();
 }
 
 function handleFacilitySelection() {
@@ -339,6 +395,7 @@ function loadActiveAudit() {
     updateFacilityLabels();
     calculateAll();
     updateAuditReportDisplay();
+    initializeReportFacilitySelector();
 }
 
 function resetFacilityEntryAfterSubmission() {

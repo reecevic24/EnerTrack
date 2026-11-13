@@ -1,5 +1,14 @@
 function generateAuditReport() {
-    if (selectedFacility === 'Hostels') {
+    const reportSelection = document.getElementById('reportFacilitySelector').value;
+    if (reportSelection === ALL_FACILITIES_REPORT) {
+        generateAllFacilitiesReport();
+        return;
+    }
+    if (!reportSelection || !selectedFacility) {
+        alert('Select a facility or All facilities before generating a report.');
+        return;
+    }
+    if (selectedFacility === 'Hostels' && !selectedHostelName) {
         generateHostelsAggregateReport();
         return;
     }
@@ -188,6 +197,155 @@ function generateAuditReport() {
     record.reportGeneratedAt = new Date().toISOString();
     saveAudits();
     updateAuditReportDisplay();
+}
+
+function generateAllFacilitiesReport() {
+    const activeAudit = getCurrentAudit(false);
+    if (activeAudit) {
+        activeAudit.inventory = inventory;
+        activeAudit.facilityInfo = { ...facilityInfo };
+        activeAudit.historicalData = historicalData;
+        activeAudit.photos = auditPhotos;
+    }
+
+    const reportAudits = audits
+        .filter(audit => Array.isArray(audit.inventory) && audit.inventory.length)
+        .slice()
+        .sort((a, b) => currentAuditLabel(a).localeCompare(currentAuditLabel(b), 'en', {
+            numeric: true,
+            sensitivity: 'base'
+        }));
+    if (!reportAudits.length) {
+        alert('Add equipment to at least one facility audit before generating the all-facilities report.');
+        return;
+    }
+
+    const format = value => Number(value).toLocaleString('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    });
+    const totals = { monthlyKwh: 0, monthlyCost: 0, monthlyCarbon: 0, activePowerKw: 0 };
+    const facilitySections = [];
+    const photos = [];
+
+    for (const audit of reportAudits) {
+        const label = currentAuditLabel(audit);
+        const items = audit.inventory;
+        if (items.some(item => !item
+            || typeof item.name !== 'string' || !item.name.trim()
+            || typeof item.category !== 'string' || !item.category.trim()
+            || !Number.isFinite(Number(item.watts)) || Number(item.watts) <= 0
+            || !Number.isInteger(Number(item.qty)) || Number(item.qty) < 1
+            || !Number.isFinite(Number(item.hours)) || Number(item.hours) < 0 || Number(item.hours) > 24)) {
+            alert(`The equipment inventory for ${label} contains invalid values. Correct it before generating the report.`);
+            return;
+        }
+
+        const historical = Array.isArray(audit.historicalData) ? audit.historicalData : [];
+        if (historical.some(entry => !entry
+            || typeof entry.month !== 'string' || !/^\d{4}-\d{2}$/.test(entry.month)
+            || Number(entry.month.slice(5)) < 1 || Number(entry.month.slice(5)) > 12
+            || !Number.isFinite(Number(entry.kwh)) || Number(entry.kwh) < 0
+            || !Number.isFinite(Number(entry.cost)) || Number(entry.cost) < 0)) {
+            alert(`The utility bill history for ${label} contains incomplete or invalid values. Correct it before generating the report.`);
+            return;
+        }
+
+        const settings = audit.energySettings || {};
+        const configuredTariff = Number(settings.tariffRate ?? audit.tariffRate);
+        const configuredEmissionFactor = Number(settings.emissionFactor ?? audit.emissionFactor);
+        const tariff = Number.isFinite(configuredTariff) ? configuredTariff : DEFAULT_TARIFF_RATE;
+        const emissionFactor = Number.isFinite(configuredEmissionFactor)
+            ? configuredEmissionFactor
+            : DEFAULT_EMISSION_FACTOR;
+        const facilityTotals = calculateInventoryTotals(items, tariff, emissionFactor);
+        totals.monthlyKwh += facilityTotals.monthlyKwh;
+        totals.monthlyCost += facilityTotals.monthlyCost;
+        totals.monthlyCarbon += facilityTotals.monthlyCarbon;
+        totals.activePowerKw += facilityTotals.activePowerKw;
+
+        const details = audit.facilityInfo || {};
+        const detailLines = [
+            ['Auditor', details.authorName || audit.auditorName],
+            ['Audit date', details.auditDate],
+            ['Location', details.facilityLocation],
+            ['Floor area', details.floorArea ? `${details.floorArea} m²` : ''],
+            ['Operating hours', details.operatingHours],
+            ['Energy sources', details.energySources],
+            ['Audit purpose', details.auditPurpose],
+            ['Background', details.background],
+            ['Scope', details.scope]
+        ].filter(([, value]) => value !== undefined && value !== null && String(value).trim())
+            .map(([label, value]) => `${label}: ${value}`);
+        const findings = String(audit.findings || '').split(/\r?\n/).map(value => value.trim()).filter(Boolean);
+        const recommendations = Array.isArray(audit.recommendations)
+            ? audit.recommendations.map(value => String(value).trim()).filter(Boolean)
+            : [];
+        facilitySections.push([
+            label,
+            `Audit status: ${audit.status || 'draft'}`,
+            ...detailLines,
+            `Equipment entries: ${items.length}`,
+            `Estimated consumption: ${format(facilityTotals.monthlyKwh)} kWh/month`,
+            `Estimated cost: KES ${format(facilityTotals.monthlyCost)}/month`,
+            `Estimated emissions: ${format(facilityTotals.monthlyCarbon)} kg CO₂e/month`,
+            'Equipment:',
+            ...items.map(item =>
+                `  ${item.category} | ${item.name} | ${item.watts} W | quantity ${item.qty} | ${item.hours} hours/day | ${format(item.monthlyKwh)} kWh/month`
+            ),
+            ...(historical.length
+                ? ['Historical bills:', ...historical.map(entry =>
+                    `  ${formatBillingMonth(entry.month)} | ${format(entry.kwh)} kWh | KES ${format(entry.cost)}`)]
+                : ['Historical bills: none recorded']),
+            ...(findings.length
+                ? ['Auditor findings:', ...findings.map(finding => `  ${finding}`)]
+                : ['Auditor findings: none recorded']),
+            ...(recommendations.length
+                ? ['Auditor recommendations:', ...recommendations.map(recommendation => `  ${recommendation}`)]
+                : ['Auditor recommendations: none recorded']),
+            ''
+        ]);
+        (Array.isArray(audit.photos) ? audit.photos : []).forEach(photo => {
+            photos.push({
+                facility: label,
+                name: photo.name || 'Audit photo',
+                src: photo.dataUrl || photo.url
+            });
+        });
+    }
+
+    const report = [
+        'ENERTRACK | ALL-FACILITIES ENERGY AUDIT REPORT',
+        `Generated: ${new Date().toLocaleString()}`,
+        `Facility audits included: ${reportAudits.length}`,
+        '',
+        'COMBINED SUMMARY',
+        `Estimated connected load: ${format(totals.activePowerKw)} kW`,
+        `Estimated consumption: ${format(totals.monthlyKwh)} kWh/month`,
+        `Estimated cost: KES ${format(totals.monthlyCost)}/month`,
+        `Estimated emissions: ${format(totals.monthlyCarbon)} kg CO₂e/month`,
+        '',
+        'FACILITY DETAILS AND EQUIPMENT',
+        ...facilitySections.flat(),
+        'METHOD AND LIMITATIONS',
+        'Energy is estimated from the saved equipment ratings, quantities, and daily operating hours. Cost and emissions use each audit’s configured tariff and emission factor. Validate these estimates against utility bills and meter readings.'
+    ].join('\n');
+    document.getElementById('aiReportContent').textContent = report;
+
+    const gallery = document.getElementById('reportPhotoGallery');
+    gallery.innerHTML = '';
+    photos.forEach(photo => {
+        if (!photo.src) return;
+        const figure = document.createElement('figure');
+        figure.className = 'audit-photo-card';
+        const image = document.createElement('img');
+        image.src = photo.src;
+        image.alt = `${photo.facility}: ${photo.name}`;
+        const caption = document.createElement('figcaption');
+        caption.textContent = `${photo.facility} — ${photo.name}`;
+        figure.append(image, caption);
+        gallery.appendChild(figure);
+    });
 }
 
 function getAuditRecommendationLines(record) {

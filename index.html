@@ -294,7 +294,11 @@
             <section class="card-panel ai-report-panel">
                 <div style="display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap;">
                     <h4 style="margin: 0; border: none; padding: 0;">📄 Comprehensive Energy Audit Report</h4>
-                    <button class="btn-action ai-generate" onclick="generateAuditReport()">Generate Comprehensive Report</button>
+                    <div class="action-row">
+                        <label for="reportFacilitySelector">Facility report:</label>
+                        <select id="reportFacilitySelector" onchange="handleReportFacilitySelection()" aria-label="Select facility for report"></select>
+                        <button id="generateAuditReportButton" class="btn-action ai-generate" onclick="generateAuditReport()" disabled>Generate Comprehensive Report</button>
+                    </div>
                 </div>
                 <p class="facility-hint" style="margin: 0.8rem 0;">Creates an on-device, data-driven analysis of energy use, equipment, bills, evidence, and recommendations. Audit data is not sent to an external AI service.</p>
                 <div id="aiReportContent" class="ai-report-content">Select a facility and add equipment, then generate an audit report.</div>
