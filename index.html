@@ -153,9 +153,9 @@
                     <div class="box"><h4>Total Monthly Cost</h4><div class="box-value" id="dashboardUniversityCost">KES 0.00</div></div>
                     <div class="box carbon-box"><h4>Facilities Audited</h4><div class="box-value" id="dashboardFacilityCount">0</div></div>
                 </div>
-                <p class="facility-hint">Add equipment to a facility audit to include its measured consumption in the university total.</p>
+                <p id="dashboardFacilityHint" class="facility-hint">Add equipment to a facility audit to include its measured consumption in the university total.</p>
                 <div class="action-row" style="margin-top: 1rem;">
-                    <button class="btn-action" onclick="switchPage('facilities')">Open Facilities & Equipment</button>
+                    <button id="dashboardFacilitiesButton" class="btn-action" onclick="switchPage('facilities')">Open Facilities & Equipment</button>
                     <button class="btn-action" onclick="switchPage('university')">View University Breakdown</button>
                 </div>
             </section>
@@ -467,13 +467,13 @@
                     <div id="accountList" class="submission-list"></div>
                 </div>
             </section>
-            <section class="card-panel">
+            <section id="mySubmissionPanel" class="card-panel">
                 <h4>📨 My facility submissions</h4>
                 <div id="mySubmissionList" class="submission-list"></div>
             </section>
             <section id="adminReviewPanel" class="card-panel" style="display: none;">
                 <h4>📝 Administrator: Audit approval queue</h4>
-                <p class="facility-hint">Edit submitted facility and equipment details, approve the final data, or discard a submission. Edited submissions return to pending until approved.</p>
+                <p class="facility-hint">Review submitted details, approve an audit, or permanently delete it. Submitted details are read-only to administrators.</p>
                 <div class="action-row profile-dropdown-controls">
                     <button id="approveAuditsButton" class="btn-action" type="button" aria-expanded="false" aria-controls="adminReviewQueuePanel" onclick="toggleProfileDropdown('audits', 'pending')">Approve audit</button>
                     <button id="auditStatusButton" class="btn-action" type="button" aria-expanded="false" aria-controls="adminReviewQueuePanel" onclick="toggleProfileDropdown('audits', 'status')">Audits status</button>

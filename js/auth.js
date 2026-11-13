@@ -150,6 +150,7 @@ async function completePasswordReset() {
 }
 
 function switchPage(page) {
+    if (currentUser && currentUser.role === 'admin' && ['facilities', 'measures'].includes(page)) return;
     document.querySelectorAll('.page-view').forEach(p => p.classList.remove('active'));
     document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
 

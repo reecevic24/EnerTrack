@@ -4,7 +4,7 @@ const crypto = require('node:crypto');
 const express = require('express');
 const { z } = require('zod');
 const pool = require('../db/pool');
-const { requireAuth } = require('./auth');
+const { requireAuth, requireAuditor } = require('./auth');
 const { generateAuditReport } = require('../services/report');
 const { buildAuditPdf } = require('../services/pdf');
 
@@ -349,7 +349,7 @@ router.get('/audits', async (req, res, next) => {
     }
 });
 
-router.post('/audits', async (req, res, next) => {
+router.post('/audits', requireAuditor, async (req, res, next) => {
     const createSchema = z.object({
         facilityId: z.string().min(1).max(120),
         hostelName: z.string().max(200).optional().default('')
@@ -384,7 +384,7 @@ router.get('/audits/:auditId', async (req, res, next) => {
     }
 });
 
-router.put('/audits/:auditId', async (req, res, next) => {
+router.put('/audits/:auditId', requireAuditor, async (req, res, next) => {
     const client = await pool.connect();
     try {
         const auditId = uuidSchema.parse(req.params.auditId);
@@ -401,7 +401,7 @@ router.put('/audits/:auditId', async (req, res, next) => {
     }
 });
 
-router.delete('/audits/:auditId', async (req, res, next) => {
+router.delete('/audits/:auditId', requireAuditor, async (req, res, next) => {
     try {
         const auditId = uuidSchema.parse(req.params.auditId);
         const result = await pool.query(
@@ -415,7 +415,7 @@ router.delete('/audits/:auditId', async (req, res, next) => {
     }
 });
 
-router.post('/audits/:auditId/submit', async (req, res, next) => {
+router.post('/audits/:auditId/submit', requireAuditor, async (req, res, next) => {
     const client = await pool.connect();
     try {
         const auditId = uuidSchema.parse(req.params.auditId);
@@ -595,54 +595,54 @@ router.get('/admin/audits', requireAdmin, async (req, res, next) => {
     }
 });
 
+router.delete('/admin/audits/:auditId', requireAdmin, async (req, res, next) => {
+    try {
+        const auditId = uuidSchema.parse(req.params.auditId);
+        const result = await pool.query('DELETE FROM audits WHERE id = $1 RETURNING id', [auditId]);
+        if (!result.rowCount) return res.status(404).json({ error: 'Audit not found.' });
+        res.sendStatus(204);
+    } catch (error) {
+        next(error);
+    }
+});
+
 router.patch('/admin/audits/:auditId/review', requireAdmin, async (req, res, next) => {
     const client = await pool.connect();
     try {
         const auditId = uuidSchema.parse(req.params.auditId);
         const input = z.object({
-            action: z.enum(['save', 'approve', 'discard']),
-            audit: auditSchema.optional(),
+            action: z.literal('approve'),
             comments: z.string().max(3000).optional().default('')
         }).parse(req.body);
         await client.query('BEGIN');
-        const current = await client.query('SELECT id, auditor_id, status FROM audits WHERE id = $1 FOR UPDATE', [auditId]);
+        const current = await client.query('SELECT id, status FROM audits WHERE id = $1 FOR UPDATE', [auditId]);
         if (!current.rowCount) {
             await client.query('ROLLBACK');
             return res.status(404).json({ error: 'Audit not found.' });
         }
-        if (input.action === 'discard') {
-            await client.query(
-                `UPDATE audits SET status = 'discarded', reviewed_at = now(), reviewed_by = $2, version = version + 1, updated_at = now()
-                 WHERE id = $1`,
-                [auditId, req.session.user.id]
-            );
-        } else {
-            if (!input.audit) {
-                await client.query('ROLLBACK');
-                return res.status(400).json({ error: 'Include the edited audit details before saving or approving.' });
-            }
-            await saveAudit(client, current.rows[0].auditor_id, auditId, input.audit, input.action === 'approve' ? 'approved' : 'pending');
-            if (input.action === 'approve') {
-                const equipment = await client.query('SELECT count(*)::int AS count FROM audit_equipment WHERE audit_id = $1', [auditId]);
-                if (!equipment.rows[0].count) {
-                    await client.query('ROLLBACK');
-                    return res.status(400).json({ error: 'An audit must include equipment before it can be approved.' });
-                }
-                await client.query(
-                    'UPDATE audits SET reviewed_at = now(), reviewed_by = $2, updated_at = now() WHERE id = $1',
-                    [auditId, req.session.user.id]
-                );
-            }
+        if (current.rows[0].status !== 'pending') {
+            await client.query('ROLLBACK');
+            return res.status(409).json({ error: 'Only pending audits can be approved.' });
         }
+        const equipment = await client.query('SELECT count(*)::int AS count FROM audit_equipment WHERE audit_id = $1', [auditId]);
+        if (!equipment.rows[0].count) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ error: 'An audit must include equipment before it can be approved.' });
+        }
+        const snapshot = await getAudit(client, auditId);
+        await client.query(
+            `UPDATE audits SET status = 'approved', reviewed_at = now(), reviewed_by = $2, updated_at = now()
+             WHERE id = $1`,
+            [auditId, req.session.user.id]
+        );
         await client.query(
             'INSERT INTO audit_reviews (audit_id, reviewer_id, action, comments, snapshot) VALUES ($1, $2, $3, $4, $5)',
-            [auditId, req.session.user.id, input.action === 'save' ? 'edited' : input.action === 'approve' ? 'approved' : 'discarded', input.comments, input.audit || {}]
+            [auditId, req.session.user.id, 'approved', input.comments, snapshot]
         );
         await client.query('COMMIT');
         res.json({ audit: await getAudit(pool, auditId) });
     } catch (error) {
         await client.query('ROLLBACK');
-        if (error.code === '23505') return res.status(409).json({ error: 'Another audit already exists for this facility and auditor.' });
         next(error);
     } finally {
         client.release();
@@ -658,7 +658,7 @@ router.get('/recommendations', async (req, res, next) => {
     }
 });
 
-router.put('/recommendations', async (req, res, next) => {
+router.put('/recommendations', requireAuditor, async (req, res, next) => {
     try {
         const recommendations = z.array(z.object({
             id: z.string().min(1).max(100),

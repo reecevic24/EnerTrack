@@ -3,7 +3,7 @@ async function loadSharedSubmissions() {
         const path = isAdministrator() ? '/api/admin/audits' : '/api/audits';
         const { audits: submissions } = await apiRequest(path);
         if (!Array.isArray(submissions)) throw new Error('Server audits must be an array.');
-        sharedSubmissions = submissions.filter(item => item.status !== 'draft').map(item => {
+        sharedSubmissions = submissions.filter(item => isAdministrator() || item.status !== 'draft').map(item => {
             const photos = Array.isArray(item.photos) ? item.photos.map(photo => ({
                 ...photo,
                 dataUrl: photo.url ? `${API_BASE}${photo.url}` : photo.dataUrl
@@ -173,6 +173,10 @@ function beginAuditRecommendations() {
         alert('Sign in before continuing with this audit.');
         return;
     }
+    if (isAdministrator()) {
+        alert('Administrator accounts cannot create or submit audits. Use Profiles & Reviews to supervise auditor submissions.');
+        return;
+    }
     if (selectedFacility === 'Hostels') {
         const hostelInput = document.getElementById('hostelName');
         if (hostelInput && hostelInput.value.trim() && hostelInput.value.trim() !== selectedHostelName) {
@@ -192,6 +196,10 @@ function beginAuditRecommendations() {
 
 async function submitCurrentAudit() {
     if (!currentUser) return;
+    if (isAdministrator()) {
+        alert('Administrator accounts cannot submit audits. Use Profiles & Reviews to approve or delete auditor submissions.');
+        return;
+    }
     if (selectedFacility === 'Hostels') {
         const hostelInput = document.getElementById('hostelName');
         if (hostelInput && hostelInput.value.trim() && hostelInput.value.trim() !== selectedHostelName) {

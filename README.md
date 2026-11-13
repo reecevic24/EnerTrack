@@ -55,27 +55,35 @@ request endpoint returns a configuration error and cannot send email.
 Run the application checks with `npm test`. During local development, `npm run dev`
 restarts the server when backend files change.
 
-## Netlify, Render, and Neon deployment
+## Netlify, GitHub Pages, Render, and Neon deployment
 
-The Netlify site at `https://enertrackmo.netlify.app` selects the Render API at
-`https://enertrack-1.onrender.com` in `api-config.js`. Other hosts, including local
-development, keep using their own origin unless `window.ENERTRACK_API_BASE_URL` is
-explicitly set.
+The Netlify site at `https://enertrackmo.netlify.app` and GitHub Pages site at
+`https://reecevic24.github.io/EnerTrack/` select the Render API at
+`https://enertrack-1.onrender.com` in `api-config.js`. The GitHub Actions workflow
+publishes only the static frontend; the Express API remains on Render and PostgreSQL
+remains on its current provider. Other hosts, including local development, keep using
+their own origin unless `window.ENERTRACK_API_BASE_URL` is explicitly set.
+
+To enable GitHub Pages deployment, open the repository's **Settings → Pages**, select
+**GitHub Actions** as the build and deployment source, and push to `main` (or run the
+workflow manually from **Actions**). The workflow publishes the frontend automatically.
+Keep the Render API and its existing `DATABASE_URL` configuration unchanged.
 
 Configure these values on the Render web service and redeploy or restart it after saving:
 
 | Variable | Value |
 |---|---|
-| `FRONTEND_ORIGINS` | `https://enertrackmo.netlify.app` (exact origin, no trailing slash) |
+| `FRONTEND_ORIGINS` | `https://enertrackmo.netlify.app,https://reecevic24.github.io` (exact origins, no trailing slash) |
 | `SESSION_SAME_SITE` | `none` |
 | `NODE_ENV` | `production` |
 
-`SameSite=None` allows the browser to send the session cookie from the separate Netlify
-site to Render; production mode makes that cookie secure-only. Keep `DATABASE_URL` set to
-the Neon connection string on Render. The `/api/health` endpoint confirms database
-connectivity, but does not identify which database provider or instance is configured.
-Browser privacy settings that block third-party cookies can still prevent cross-site
-sessions; if that occurs, use a same-origin API proxy or custom domain arrangement.
+`SameSite=None` allows the browser to send the session cookie from the separate frontend
+site to Render; production mode makes that cookie secure-only. Keep `DATABASE_URL` set
+to the existing database connection string on Render. The `/api/health` endpoint confirms
+database connectivity, but does not identify which database provider or instance is
+configured. Browser privacy settings that block third-party cookies can still prevent
+cross-site sessions; if that occurs, use a same-origin API proxy or custom domain
+arrangement.
 
 ## Configuration
 
@@ -93,13 +101,13 @@ sessions; if that occurs, use a same-origin API proxy or custom domain arrangeme
 | `PUBLIC_APP_URL` | Public site URL used to construct password-reset links |
 | `MAX_JSON_BODY` | Maximum JSON request size (defaults to `16mb`, including resized photos) |
 
-Keep the frontend and API on the same origin when possible. A GitHub Pages site and an
-API hosted on another domain may encounter browser restrictions on cross-site session
-cookies even when CORS is configured. For production, use a custom domain and reverse
-proxy, or another same-site hosting arrangement. Configure only trusted exact origins;
-do not use wildcard credentialed CORS. If deploying the static site separately, set
-`window.ENERTRACK_API_BASE_URL` in `api-config.js` to the API origin and set that exact
-frontend origin in the API's `FRONTEND_ORIGINS`.
+Keep the frontend and API on the same site when possible. A GitHub Pages site and an API
+hosted on another domain may encounter browser restrictions on cross-site session cookies
+even when CORS is configured. For production, use a custom domain and reverse proxy, or
+another same-site hosting arrangement. Configure only trusted exact origins; do not use
+wildcard credentialed CORS. If deploying the static site on a different host, set
+`window.ENERTRACK_API_BASE_URL` in `api-config.js` to the API origin and add the exact
+frontend origin (hostname only, without the path) to the API's `FRONTEND_ORIGINS`.
 
 Audit photos are currently stored as PostgreSQL `bytea` values with a per-image 2 MB
 limit. For larger deployments, move binary assets to private object storage and retain
@@ -123,6 +131,10 @@ Audit records include facility details, equipment, monthly utility readings, aud
 findings, recommendations, and supporting photos. The migration runner applies incremental
 schema updates when the server's database is provisioned.
 
+Auditor accounts create and submit facility audits. Administrator accounts cannot create or
+submit audits; they review read-only submissions, approve or permanently delete audits, and
+manage accounts and university-level monitoring.
+
 The database migration seeds the nine existing facility names. Audit calculations are
 derived from validated equipment and tariff inputs on the server for university totals.
 After sign-in, the frontend imports existing browser-local audit records into PostgreSQL.
@@ -131,7 +143,10 @@ successfully. Local passwords and account roles are not imported.
 
 ## GitHub Pages
 
-GitHub Pages can continue to serve a static frontend but cannot run this Express server
-or PostgreSQL. Deploy the API and database separately, set the exact frontend origin in
-`FRONTEND_ORIGINS`, and configure HTTPS, session-cookie settings, database TLS, SMTP,
-and private persistent file storage for the chosen hosting provider.
+The GitHub Actions workflow in `.github/workflows/deploy-pages.yml` deploys the static
+frontend to GitHub Pages. GitHub Pages cannot run this Express server or PostgreSQL;
+the existing Render API and database remain separate and unchanged. After enabling Pages
+with the GitHub Actions source, add `https://reecevic24.github.io` to the Render service's
+`FRONTEND_ORIGINS` and redeploy the API. The frontend is configured to call the existing
+Render API. Cross-site session cookies may still be blocked by some browsers; use a
+custom domain and same-site API arrangement if that occurs.

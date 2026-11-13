@@ -51,12 +51,13 @@ function renderLoadRecommendationBoxes() {
 function updateRecommendationSubmitSection() {
     const section = document.getElementById('recommendationSubmitSection');
     if (!section) return;
-    section.hidden = !loadRecommendations.some(recommendation =>
+    section.hidden = isAdministrator() || !loadRecommendations.some(recommendation =>
         recommendation.text && recommendation.text.trim()
     );
 }
 
 function addCustomLoadBox() {
+    if (isAdministrator()) return;
     const newId = 'custom_' + Date.now();
     loadRecommendations.push({
         id: newId,
@@ -68,12 +69,14 @@ function addCustomLoadBox() {
 }
 
 function removeCustomLoadBox(id) {
+    if (isAdministrator()) return;
     loadRecommendations = loadRecommendations.filter(r => r.id !== id);
     saveAuditorComments();
     renderLoadRecommendationBoxes();
 }
 
 function updateLoadTypeName(id, val) {
+    if (isAdministrator()) return;
     const item = loadRecommendations.find(r => r.id === id);
     if (item) {
         item.loadType = val;
@@ -82,6 +85,7 @@ function updateLoadTypeName(id, val) {
 }
 
 function updateLoadText(id, val) {
+    if (isAdministrator()) return;
     const item = loadRecommendations.find(r => r.id === id);
     if (item) {
         item.text = val;
@@ -95,7 +99,7 @@ function updateLoadText(id, val) {
 }
 
 function saveAuditorComments() {
-    if (!currentUser) return;
+    if (!currentUser || isAdministrator()) return;
     persistUserData('recommendations', loadRecommendations);
 
     const indicator = document.getElementById('saveIndicator');

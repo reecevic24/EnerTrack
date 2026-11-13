@@ -34,7 +34,7 @@ function renderProfiles() {
     role.className = `profile-role ${admin ? 'role-admin' : 'role-auditor'}`;
     document.getElementById('profileEmail').textContent = currentUser.email;
     document.getElementById('adminSetupHint').textContent = admin
-        ? 'Administrator access is enabled for this profile.'
+        ? 'Administrator access is enabled. Review auditor submissions and supervise the application from this profile.'
         : administratorExists
             ? 'This profile can submit audits and track administrator review status.'
             : canClaimAdministrator
@@ -44,6 +44,13 @@ function renderProfiles() {
         !administratorExists && canClaimAdministrator ? 'inline-block' : 'none';
     document.getElementById('adminAccountsPanel').style.display = admin ? 'block' : 'none';
     document.getElementById('adminReviewPanel').style.display = admin ? 'block' : 'none';
+    document.getElementById('mySubmissionPanel').hidden = admin;
+    document.getElementById('tabFacilities').hidden = admin;
+    document.getElementById('tabMeasures').hidden = admin;
+    document.getElementById('dashboardFacilitiesButton').hidden = admin;
+    document.getElementById('dashboardFacilityHint').textContent = admin
+        ? 'Monitor approved auditor submissions and the university-wide energy totals from this dashboard.'
+        : 'Add equipment to a facility audit to include its measured consumption in the university total.';
     const accountListPanel = document.getElementById('accountListPanel');
     accountListPanel.hidden = !admin || !activeAccountView;
     document.getElementById('addAdminsButton').setAttribute('aria-expanded', String(activeAccountView === 'auditors'));
@@ -56,6 +63,11 @@ function renderProfiles() {
 
     const mine = document.getElementById('mySubmissionList');
     mine.innerHTML = '';
+    if (admin) {
+        mine.textContent = 'Administrators do not create or submit audits. Review auditor submissions in the approval queue.';
+        renderAdminReviewQueue();
+        return;
+    }
     const mySubmissions = sharedSubmissions.filter(item => item.auditorEmail === currentUser.email);
     if (!mySubmissions.length) {
         mine.textContent = 'No facility audits have been submitted from this profile yet.';
@@ -67,7 +79,9 @@ function renderProfiles() {
             heading.textContent = `${currentAuditLabel(item)} — ${item.status}`;
             const details = document.createElement('p');
             details.className = 'facility-hint';
-            details.textContent = `Submitted ${new Date(item.submittedAt).toLocaleString()}${item.reviewedBy ? ` · Reviewed by ${item.reviewedBy}` : ''}`;
+            details.textContent = item.submittedAt
+                ? `Submitted ${new Date(item.submittedAt).toLocaleString()}${item.reviewedBy ? ` · Reviewed by ${item.reviewedBy}` : ''}`
+                : 'Draft audit';
             row.append(heading, details);
             if (item.status === 'discarded') {
                 const actions = document.createElement('div');
@@ -157,6 +171,7 @@ function createReviewInput(labelText, value, type = 'text', fieldName = '') {
     if (type !== 'textarea') input.type = type;
     input.value = value ?? '';
     input.dataset.editField = fieldName;
+    input.readOnly = true;
     group.append(label, input);
     return group;
 }
@@ -179,15 +194,10 @@ function createEquipmentReviewRow(item = {}) {
         input.title = label;
         input.dataset.equipmentField = name;
         input.value = value;
+        input.readOnly = true;
         if (type === 'number') input.step = 'any';
         row.appendChild(input);
     });
-    const remove = document.createElement('button');
-    remove.type = 'button';
-    remove.className = 'btn-delete';
-    remove.textContent = 'Remove';
-    remove.addEventListener('click', () => row.remove());
-    row.appendChild(remove);
     return row;
 }
 
@@ -201,12 +211,12 @@ function renderAdminReviewQueue() {
     const submissions = sharedSubmissions.filter(submission =>
         activeAuditView === 'pending'
             ? submission.status === 'pending'
-            : submission.status === 'approved' || submission.status === 'discarded'
+            : submission.status === 'approved' || submission.status === 'discarded' || submission.status === 'draft'
     );
     if (!submissions.length) {
         queue.textContent = activeAuditView === 'pending'
             ? 'There are no pending audits to approve.'
-            : 'There are no approved or discarded audits.';
+            : 'There are no audits to display.';
         return;
     }
 
@@ -219,29 +229,19 @@ function renderAdminReviewQueue() {
             card.appendChild(heading);
             const details = document.createElement('p');
             details.className = 'facility-hint';
-            details.textContent = `Submitted ${new Date(submission.submittedAt).toLocaleString()}${submission.reviewedBy ? ` · Reviewed by ${submission.reviewedBy}` : ''}`;
+            details.textContent = submission.submittedAt
+                ? `Submitted ${new Date(submission.submittedAt).toLocaleString()}${submission.reviewedBy ? ` · Reviewed by ${submission.reviewedBy}` : ''}`
+                : 'Not submitted by the auditor yet.';
             card.appendChild(details);
-            if (submission.status === 'approved') {
-                const remove = document.createElement('button');
-                remove.type = 'button';
-                remove.className = 'btn-clear-all';
-                remove.textContent = 'Remove';
-                remove.addEventListener('click', () => removeApprovedSubmission(submission.id, remove));
-                const actions = document.createElement('div');
-                actions.className = 'action-row';
-                actions.appendChild(remove);
-                card.appendChild(actions);
-            } else if (normalizeEmail(submission.auditorEmail) === normalizeEmail(currentUser.email)) {
-                const remove = document.createElement('button');
-                remove.type = 'button';
-                remove.className = 'btn-delete';
-                remove.textContent = 'Delete';
-                remove.addEventListener('click', () => deleteDiscardedSubmission(submission.id, remove));
-                const actions = document.createElement('div');
-                actions.className = 'action-row';
-                actions.appendChild(remove);
-                card.appendChild(actions);
-            }
+            const remove = document.createElement('button');
+            remove.type = 'button';
+            remove.className = 'btn-delete';
+            remove.textContent = 'Delete audit';
+            remove.addEventListener('click', () => deleteAdminSubmission(submission.id, remove));
+            const actions = document.createElement('div');
+            actions.className = 'action-row';
+            actions.appendChild(remove);
+            card.appendChild(actions);
             queue.appendChild(card);
             return;
         }
@@ -266,6 +266,7 @@ function renderAdminReviewQueue() {
             facilitySelect.appendChild(option);
         });
         facilitySelect.value = submission.facilityId;
+        facilitySelect.disabled = true;
         facilityGroup.append(facilityLabel, facilitySelect);
         metadata.appendChild(facilityGroup);
         metadata.appendChild(createReviewInput('Hostel name / identifier', submission.hostelName, 'text', 'hostelName'));
@@ -310,16 +311,7 @@ function renderAdminReviewQueue() {
             image.alt = photo.name || 'Auditor site photo';
             const caption = document.createElement('figcaption');
             caption.textContent = photo.name || `Audit photo ${photoIndex + 1}`;
-            const removePhoto = document.createElement('button');
-            removePhoto.type = 'button';
-            removePhoto.className = 'btn-delete';
-            removePhoto.textContent = 'Remove photo';
-            removePhoto.addEventListener('click', () => {
-                submission.photos.splice(photoIndex, 1);
-                figure.remove();
-                photoHeading.textContent = `Audit photos (${submission.photos.length})`;
-            });
-            figure.append(image, caption, removePhoto);
+            figure.append(image, caption);
             photoGallery.appendChild(figure);
         });
         const equipmentHeading = document.createElement('h5');
@@ -327,147 +319,31 @@ function renderAdminReviewQueue() {
         const equipmentRows = document.createElement('div');
         equipmentRows.className = 'review-equipment-list';
         (submission.inventory || []).forEach(item => equipmentRows.appendChild(createEquipmentReviewRow(item)));
-        const addEquipment = document.createElement('button');
-        addEquipment.type = 'button';
-        addEquipment.className = 'btn-action';
-        addEquipment.textContent = 'Add equipment row';
-        addEquipment.addEventListener('click', () => equipmentRows.appendChild(createEquipmentReviewRow()));
         const actions = document.createElement('div');
         actions.className = 'action-row';
         actions.style.marginTop = '1rem';
 
-        const save = document.createElement('button');
-        save.className = 'btn-action';
-        save.textContent = 'Save edits';
-        save.addEventListener('click', () => saveSubmissionEdits(submission.id, card));
         const approve = document.createElement('button');
         approve.className = 'btn-action';
         approve.textContent = 'Approve';
-        approve.addEventListener('click', () => approveSubmission(submission.id, card));
-        const discard = document.createElement('button');
-        discard.className = 'btn-clear-all';
-        discard.textContent = 'Discard';
-        discard.addEventListener('click', () => discardSubmission(submission.id));
-        actions.append(save, approve, discard);
-        card.append(metadata, photoHeading, photoGallery, equipmentHeading, equipmentRows, addEquipment, actions);
+        approve.addEventListener('click', () => approveSubmission(submission.id));
+        const remove = document.createElement('button');
+        remove.className = 'btn-delete';
+        remove.textContent = 'Delete audit';
+        remove.addEventListener('click', () => deleteAdminSubmission(submission.id, remove));
+        actions.append(approve, remove);
+        card.append(metadata, photoHeading, photoGallery, equipmentHeading, equipmentRows, actions);
         queue.appendChild(card);
     });
 }
 
-function collectSubmissionEdits(id, card) {
-    const submission = sharedSubmissions.find(item => item.id === id);
-    if (!submission || !card || !isAdministrator()) return null;
-    const readField = name => card.querySelector(`[data-edit-field="${name}"]`).value.trim();
-    const facilityId = readField('facilityId');
-    const hostelName = readField('hostelName');
-    const rows = [...card.querySelectorAll('.submission-equipment')];
-    const inventory = [];
-    for (const row of rows) {
-        const readEquipment = name => row.querySelector(`[data-equipment-field="${name}"]`).value.trim();
-        const category = readEquipment('category');
-        const name = readEquipment('name');
-        const watts = Number(readEquipment('watts'));
-        const qty = Number(readEquipment('qty'));
-        const hours = Number(readEquipment('hours'));
-        if (!name || !category || !Number.isFinite(watts) || watts <= 0 || !Number.isInteger(qty) || qty < 1 ||
-            !Number.isFinite(hours) || hours <= 0 || hours > 24) {
-            alert('Each equipment row needs a category, name, positive wattage, whole-number quantity, and daily operating hours from 0 to 24.');
-            return null;
-        }
-        inventory.push({
-            id: Number(row.dataset.itemId) || Date.now() + inventory.length,
-            category,
-            name,
-            watts,
-            qty,
-            hours,
-            pf: 1
-        });
-    }
-    if (!inventory.length) {
-        alert('Keep at least one equipment row in the audit before saving or approving it.');
-        return null;
-    }
-    if (facilityId === 'Hostels' && !hostelName) {
-        alert('Enter the hostel name before saving or approving this audit.');
-        return null;
-    }
-    const historicalData = [];
-    const historyText = readField('historicalData');
-    for (const [index, line] of historyText.split(/\r?\n/).entries()) {
-        if (!line.trim()) continue;
-        const [month, kwhText, costText] = line.split(',').map(value => value.trim());
-        const kwh = Number(kwhText);
-        const cost = Number(costText);
-        if (!/^\d{4}-\d{2}$/.test(month) || !Number.isFinite(kwh) || kwh < 0 || !Number.isFinite(cost) || cost < 0) {
-            alert(`Historical bill line ${index + 1} must be formatted as YYYY-MM,kWh,KES bill.`);
-            return null;
-        }
-        historicalData.push({ month, kwh, cost });
-    }
-
-    const newAuditKey = facilityId === 'Hostels' ? `Hostels:${hostelName.toLocaleLowerCase()}` : facilityId;
-    const conflictingSubmission = sharedSubmissions.find(item =>
-        item.auditKey === newAuditKey && item.id !== submission.id && item.status !== 'discarded'
-    );
-    if (conflictingSubmission) {
-        alert('Another audit already exists for this facility. Resolve that submission before changing this facility name.');
-        return null;
-    }
-    if (newAuditKey !== submission.auditKey) {
-        submission.sourceAuditKey = submission.sourceAuditKey || submission.auditKey;
-        submission.auditKey = newAuditKey;
-    }
-
-    submission.facilityId = facilityId;
-    submission.hostelName = facilityId === 'Hostels' ? hostelName : '';
-    submission.facilityInfo = {
-        facilityLocation: readField('facilityLocation'),
-        floorArea: readField('floorArea'),
-        authorName: readField('authorName'),
-        energySources: readField('energySources'),
-        auditDate: readField('auditDate'),
-        auditPurpose: readField('auditPurpose'),
-        scope: readField('scope')
-    };
-    submission.inventory = inventory;
-    submission.historicalData = historicalData;
-    submission.findings = readField('findings');
-    submission.recommendations = readField('recommendations').split(/\r?\n/).map(item => item.trim()).filter(Boolean);
-    submission.report = '';
-    submission.reviewedAt = '';
-    submission.reviewedBy = '';
-    return submission;
-}
-
-async function saveSubmissionEdits(id, card) {
-    if (!isAdministrator()) return;
-    const submission = collectSubmissionEdits(id, card);
-    if (!submission) return;
-    submission.status = 'pending';
-    submission.lastEditedBy = currentUser.name;
-    try {
-        const { audit: savedSubmission } = await apiRequest(`/api/admin/audits/${encodeURIComponent(id)}/review`, {
-            method: 'PATCH',
-            body: JSON.stringify({ action: 'save', audit: toAuditPayload(submission) })
-        });
-        replaceSubmission(savedSubmission);
-        saveSharedSubmissions();
-        alert('Edits saved. The audit is pending approval.');
-    } catch (error) {
-        reportApiError(error);
-    }
-}
-
-async function approveSubmission(id, card) {
+async function approveSubmission(id) {
     if (!isAdministrator()) return;
     if (!confirm('Approve this audit and include its data in university-wide totals?')) return;
-    const submission = collectSubmissionEdits(id, card);
-    if (!submission) return;
     try {
         const { audit: approvedSubmission } = await apiRequest(`/api/admin/audits/${encodeURIComponent(id)}/review`, {
             method: 'PATCH',
-            body: JSON.stringify({ action: 'approve', audit: toAuditPayload(submission) })
+            body: JSON.stringify({ action: 'approve' })
         });
         replaceSubmission(approvedSubmission);
         renderInventoryTable();
@@ -478,45 +354,27 @@ async function approveSubmission(id, card) {
     }
 }
 
-async function discardSubmission(id) {
-    if (!isAdministrator()) return;
-    if (!confirm('Discard this audit submission? It will be excluded from university totals.')) return;
-    try {
-        const { audit: submission } = await apiRequest(`/api/admin/audits/${encodeURIComponent(id)}/review`, {
-            method: 'PATCH',
-            body: JSON.stringify({ action: 'discard' })
-        });
-        replaceSubmission(submission);
-        saveSharedSubmissions();
-    } catch (error) {
-        reportApiError(error);
-    }
-}
-
-async function removeApprovedSubmission(id, button) {
-    if (!isAdministrator()) return;
-    if (!confirm('Remove this approved audit? It will be excluded from campus totals.')) return;
+async function deleteAdminSubmission(id, button) {
+    if (!isAdministrator() || !confirm('Permanently delete this audit and its photos, reports, and review history?')) return;
     button.disabled = true;
-    button.textContent = 'Removing...';
+    button.textContent = 'Deleting...';
     try {
-        const { audit: submission } = await apiRequest(`/api/admin/audits/${encodeURIComponent(id)}/review`, {
-            method: 'PATCH',
-            body: JSON.stringify({ action: 'discard' })
-        });
-        replaceSubmission(submission);
+        await apiRequest(`/api/admin/audits/${encodeURIComponent(id)}`, { method: 'DELETE' });
+        await loadUserData();
+        await loadSharedSubmissions();
         saveSharedSubmissions();
     } catch (error) {
         button.disabled = false;
-        button.textContent = 'Remove';
+        button.textContent = 'Delete audit';
         reportApiError(error);
     }
 }
 
 async function deleteDiscardedSubmission(id, button) {
     const submission = sharedSubmissions.find(item => item.id === id);
-    if (!submission || submission.status !== 'discarded') return;
-    const isOwner = normalizeEmail(submission.auditorEmail) === normalizeEmail(currentUser?.email);
-    if (!isOwner) return;
+    if (!currentUser || currentUser.role !== 'auditor' || !submission ||
+        submission.status !== 'discarded' ||
+        normalizeEmail(submission.auditorEmail) !== normalizeEmail(currentUser.email)) return;
     if (!confirm('Permanently delete this discarded audit submission?')) return;
 
     button.disabled = true;

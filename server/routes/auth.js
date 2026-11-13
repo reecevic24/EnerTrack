@@ -40,6 +40,13 @@ function requireAuth(req, res, next) {
     }).catch(next);
 }
 
+function requireAuditor(req, res, next) {
+    if (req.session.user.role !== 'auditor') {
+        return res.status(403).json({ error: 'Auditor access is required to create or submit audits.' });
+    }
+    next();
+}
+
 router.get('/me', (req, res, next) => {
     if (!req.session.user) return res.json({ user: null });
     requireAuth(req, res, () => res.json({ user: req.session.user }));
@@ -252,4 +259,4 @@ router.post('/password-reset/complete', async (req, res, next) => {
     }
 });
 
-module.exports = { router, requireAuth, publicUser };
+module.exports = { router, requireAuth, requireAuditor, publicUser };

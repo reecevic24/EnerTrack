@@ -1,5 +1,5 @@
 function saveAudits() {
-    if (!currentUser) return;
+    if (!currentUser || isAdministrator()) return;
     clearTimeout(auditSaveTimer);
     auditSaveTimer = setTimeout(() => putAudits(0), 300);
 }

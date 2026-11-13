@@ -453,6 +453,10 @@ function saveUserData() {
 }
 
 function addEquipment() {
+    if (isAdministrator()) {
+        alert('Administrator accounts cannot add equipment to audits.');
+        return;
+    }
     if (selectedFacility === 'Hostels' && !selectedHostelName) {
         alert('Enter the hostel name before adding its equipment.');
         return;
@@ -485,6 +489,7 @@ function addEquipment() {
 }
 
 async function deleteItem(id) {
+    if (isAdministrator()) return;
     const record = getCurrentAudit(false);
     try {
         await loadSharedSubmissions();

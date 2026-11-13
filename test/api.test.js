@@ -6,8 +6,9 @@ process.env.DATABASE_URL ||= 'postgres://enertrack:test@127.0.0.1:1/enertrack_te
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const vm = require('node:vm');
-process.env.FRONTEND_ORIGINS = 'https://enertrackmo.netlify.app';
+process.env.FRONTEND_ORIGINS = 'https://enertrackmo.netlify.app,https://reecevic24.github.io';
 const app = require('../server/app');
+const { requireAuditor } = require('../server/routes/auth');
 
 let server;
 let baseUrl;
@@ -52,6 +53,8 @@ test('serves the updated frontend, assets, and existing API bridge', async () =>
     assert.match(pageText, /id="approveAuditsButton"/);
     assert.match(pageText, /id="auditStatusButton"/);
     assert.match(pageText, /onclick="beginAuditRecommendations\(\)">Add recommendations/);
+    assert.match(pageText, /id="mySubmissionPanel"/);
+    assert.match(pageText, /Submitted details are read-only to administrators/);
     assert.match(pageText, /id="auditorRecommendationsPanel"/);
     assert.match(pageText, /id="submitAuditForApprovalButton"/);
     assert.doesNotMatch(pageText, /id="floorArea"/);
@@ -65,7 +68,11 @@ test('serves the updated frontend, assets, and existing API bridge', async () =>
     assert.equal(client.status, 200);
     assert.match(await client.text(), /apiRequest\('\/auth\/login',/);
     assert.equal(config.status, 200);
-    assert.match(await config.text(), /https:\/\/enertrack-1\.onrender\.com/);
+    const configText = await config.text();
+    assert.match(configText, /https:\/\/enertrack-1\.onrender\.com/);
+    const githubPagesConfig = { window: { location: { hostname: 'reecevic24.github.io' } } };
+    vm.runInNewContext(configText, githubPagesConfig);
+    assert.equal(githubPagesConfig.window.ENERTRACK_API_BASE_URL, 'https://enertrack-1.onrender.com');
     assert.equal(stylesheet.status, 200);
     assert.match(await stylesheet.text(), /\.site-header/);
     assert.equal(frontendScript.status, 200);
@@ -171,6 +178,68 @@ test('does not mark a submitted audit as changed when photo URLs are normalized 
     assert.equal(context.auditHasUnsubmittedChanges(record, submission), true);
 });
 
+test('prevents administrator accounts from entering or submitting audits', async () => {
+    const response = await fetch(`${baseUrl}/js/submissions.js`);
+    const alerts = [];
+    const context = {
+        currentUser: { role: 'admin' },
+        isAdministrator: () => true,
+        alert: message => alerts.push(message)
+    };
+    vm.runInNewContext(await response.text(), context);
+
+    context.beginAuditRecommendations();
+    await context.submitCurrentAudit();
+
+    assert.equal(alerts.length, 2);
+    assert.ok(alerts.every(message => /administrator accounts cannot/i.test(message)));
+});
+
+test('restricts audit writes to auditor accounts', () => {
+    let statusCode;
+    let responseBody;
+    let nextCalled = false;
+    const response = {
+        status(code) {
+            statusCode = code;
+            return this;
+        },
+        json(body) {
+            responseBody = body;
+            return this;
+        }
+    };
+
+    requireAuditor({ session: { user: { role: 'admin' } } }, response, () => { nextCalled = true; });
+    assert.equal(statusCode, 403);
+    assert.match(responseBody.error, /auditor access/i);
+    assert.equal(nextCalled, false);
+
+    requireAuditor({ session: { user: { role: 'auditor' } } }, response, () => { nextCalled = true; });
+    assert.equal(nextCalled, true);
+});
+
+test('prevents administrator navigation to audit-entry pages', async () => {
+    const response = await fetch(`${baseUrl}/js/auth.js`);
+    const activated = [];
+    const context = {
+        currentUser: { role: 'admin' },
+        updateUniversitySummary() {},
+        document: {
+            querySelectorAll: () => [],
+            getElementById: id => ({ classList: { add: () => activated.push(id) } })
+        }
+    };
+    vm.runInNewContext(await response.text(), context);
+
+    context.switchPage('facilities');
+    context.switchPage('measures');
+    assert.deepEqual(activated, []);
+
+    context.switchPage('university');
+    assert.deepEqual(activated, ['pageUniversity', 'tabUniversity']);
+});
+
 test('exposes the personal dashboard loader to the sign-in flow', async () => {
     const response = await fetch(`${baseUrl}/js/calculations.js`);
     const context = {};
@@ -239,6 +308,28 @@ test('allows credentialed API requests from the deployed Netlify origin', async 
     });
     assert.equal(session.status, 200);
     assert.equal(session.headers.get('access-control-allow-origin'), 'https://enertrackmo.netlify.app');
+    assert.equal(session.headers.get('access-control-allow-credentials'), 'true');
+});
+
+test('allows credentialed API requests from the GitHub Pages origin', async () => {
+    const origin = 'https://reecevic24.github.io';
+    const preflight = await fetch(`${baseUrl}/api/auth/login`, {
+        method: 'OPTIONS',
+        headers: {
+            Origin: origin,
+            'Access-Control-Request-Method': 'POST',
+            'Access-Control-Request-Headers': 'content-type'
+        }
+    });
+    assert.equal(preflight.status, 204);
+    assert.equal(preflight.headers.get('access-control-allow-origin'), origin);
+    assert.equal(preflight.headers.get('access-control-allow-credentials'), 'true');
+
+    const session = await fetch(`${baseUrl}/api/auth/me`, {
+        headers: { Origin: origin }
+    });
+    assert.equal(session.status, 200);
+    assert.equal(session.headers.get('access-control-allow-origin'), origin);
     assert.equal(session.headers.get('access-control-allow-credentials'), 'true');
 });
 
