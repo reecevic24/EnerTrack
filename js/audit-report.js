@@ -99,9 +99,7 @@ function generateAuditReport() {
         ['Floor area', facilityInfo.floorArea ? `${facilityInfo.floorArea} m²` : ''],
         ['Operating hours', facilityInfo.operatingHours],
         ['Energy sources', facilityInfo.energySources],
-        ['Audit purpose', facilityInfo.auditPurpose],
-        ['Background', facilityInfo.background],
-        ['Scope', facilityInfo.scope]
+        ['Background', facilityInfo.background]
     ].filter(([, value]) => value !== undefined && value !== null && String(value).trim());
     const auditorName = facilityInfo.authorName || (currentUser ? currentUser.name : '');
     const consumptionByFacilityLines = campus.summaries.map(facility =>
@@ -233,9 +231,7 @@ function generateEmptyAuditReport(record) {
         ['Floor area', details.floorArea ? `${details.floorArea} m²` : ''],
         ['Operating hours', details.operatingHours],
         ['Energy sources', details.energySources],
-        ['Audit purpose', details.auditPurpose],
-        ['Background', details.background],
-        ['Scope', details.scope]
+        ['Background', details.background]
     ].filter(([, value]) => value !== undefined && value !== null && String(value).trim())
         .map(([label, value]) => `${label}: ${value}`);
     const historical = Array.isArray(record.historicalData) ? record.historicalData : [];
@@ -348,9 +344,7 @@ function generateAllFacilitiesReport() {
             ['Floor area', details.floorArea ? `${details.floorArea} m²` : ''],
             ['Operating hours', details.operatingHours],
             ['Energy sources', details.energySources],
-            ['Audit purpose', details.auditPurpose],
-            ['Background', details.background],
-            ['Scope', details.scope]
+            ['Background', details.background]
         ].filter(([, value]) => value !== undefined && value !== null && String(value).trim())
             .map(([label, value]) => `${label}: ${value}`);
         const findings = String(audit.findings || '').split(/\r?\n/).map(value => value.trim()).filter(Boolean);

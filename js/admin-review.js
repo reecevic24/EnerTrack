@@ -284,10 +284,6 @@ function renderAdminReviewQueue() {
 
         metadata.appendChild(createReviewInput('Energy sources', submission.facilityInfo.energySources, 'text', 'energySources'));
         metadata.appendChild(createReviewInput('Audit date', submission.facilityInfo.auditDate, 'date', 'auditDate'));
-
-        metadata.appendChild(createReviewInput('Audit purpose', submission.facilityInfo.auditPurpose, 'text', 'auditPurpose'));
-
-        metadata.appendChild(createReviewInput('Audit scope', submission.facilityInfo.scope, 'text', 'scope'));
         metadata.appendChild(createReviewInput(
             'Historical bills (one month,kWh,KES bill per line)',
             (submission.historicalData || []).map(entry => `${entry.month},${entry.kwh},${entry.cost}`).join('\n'),

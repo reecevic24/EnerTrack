@@ -90,9 +90,7 @@ test('requires complete facility details and equipment before auditor recommenda
         ['facilityLocation', 'Main Campus'],
         ['authorName', 'Test Auditor'],
         ['energySources', 'Grid electricity'],
-        ['auditDate', '2026-11-12'],
-        ['auditPurpose', 'Energy efficiency review'],
-        ['auditScope', 'Lighting and HVAC']
+        ['auditDate', '2026-11-12']
     ]);
     const elements = new Map();
     const context = {
@@ -112,9 +110,6 @@ test('requires complete facility details and equipment before auditor recommenda
     vm.runInNewContext(await response.text(), context);
 
     assert.equal(context.getAuditReadinessIssue(), null);
-    elements.get('auditScope').value = '';
-    assert.equal(context.getAuditReadinessIssue().message, 'Enter the audit scope and systems covered.');
-    elements.get('auditScope').value = 'Lighting and HVAC';
     context.inventory = [];
     assert.equal(context.getAuditReadinessIssue().message, 'Add at least one complete equipment item before continuing.');
 });
@@ -123,7 +118,7 @@ test('clears facility, equipment, and recommendation inputs after submission', a
     const response = await fetch(`${baseUrl}/js/submissions.js`);
     const elements = new Map();
     const inputIds = [
-        'facilityLocation', 'authorName', 'energySources', 'auditDate', 'auditPurpose', 'auditScope',
+        'facilityLocation', 'authorName', 'energySources', 'auditDate',
         'hostelName', 'equipment', 'wattage', 'availableNumber', 'operatingHours',
         'historyMonth', 'historyKwh', 'historyCost', 'auditPhotos'
     ];

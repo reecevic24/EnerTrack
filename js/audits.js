@@ -183,9 +183,7 @@ function createEmptyFacilityInfo() {
         floorArea: '',
         authorName: '',
         energySources: '',
-        auditDate: new Date().toISOString().slice(0, 10),
-        auditPurpose: '',
-        scope: ''
+        auditDate: new Date().toISOString().slice(0, 10)
     };
 }
 
@@ -449,8 +447,6 @@ function saveFacilityDetails() {
     if (currentUser && !isAdministrator()) facilityInfo.authorName = currentUser.name;
     facilityInfo.energySources = document.getElementById('energySources').value.trim();
     facilityInfo.auditDate = document.getElementById('auditDate').value;
-    facilityInfo.auditPurpose = document.getElementById('auditPurpose').value.trim();
-    facilityInfo.scope = document.getElementById('auditScope').value.trim();
 
     if (currentUser) {
         const record = getCurrentAudit();
@@ -481,8 +477,6 @@ function loadActiveAudit() {
     document.getElementById('authorName').value = facilityInfo.authorName || '';
     document.getElementById('energySources').value = facilityInfo.energySources || '';
     document.getElementById('auditDate').value = facilityInfo.auditDate || (selectedFacility ? new Date().toISOString().slice(0, 10) : '');
-    document.getElementById('auditPurpose').value = facilityInfo.auditPurpose || '';
-    document.getElementById('auditScope').value = facilityInfo.scope || '';
     const energySettings = record && record.energySettings
         ? { ...createDefaultEnergySettings(), ...record.energySettings }
         : createDefaultEnergySettings();

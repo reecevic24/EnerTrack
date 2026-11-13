@@ -579,9 +579,7 @@
                 energySources: readField('energySources'),
                 auditDate: readField('auditDate'),
                 savingsTarget: Number(readField('savingsTarget')),
-                auditPurpose: readField('auditPurpose'),
-                background: readField('background'),
-                scope: readField('scope')
+                background: readField('background')
             },
             inventory,
             historicalData,

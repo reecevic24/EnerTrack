@@ -34,9 +34,7 @@ const facilityInfoSchema = z.object({
         new Date(`${value}T00:00:00Z`).toISOString().slice(0, 10) === value
     ).optional().default(''),
     savingsTarget: z.number().min(0).max(100).default(15),
-    auditPurpose: z.string().max(3000).optional().default(''),
-    background: z.string().max(5000).optional().default(''),
-    scope: z.string().max(3000).optional().default('')
+    background: z.string().max(5000).optional().default('')
 });
 const equipmentSchema = z.array(z.object({
     id: z.union([z.string().max(100), z.number().safe()]).optional(),
@@ -100,9 +98,7 @@ function auditSummary(row) {
             energySources: row.energy_sources,
             auditDate: row.audit_date ? row.audit_date.toISOString().slice(0, 10) : '',
             savingsTarget: Number(row.savings_target),
-            auditPurpose: row.audit_purpose,
-            background: row.background,
-            scope: row.scope
+            background: row.background
         },
         tariffRate: Number(row.tariff_rate),
         emissionFactor: Number(row.emission_factor),
@@ -209,13 +205,13 @@ async function saveAudit(client, userId, auditId, data, status = null) {
         `INSERT INTO audits (
             id, auditor_id, facility_id, hostel_name, status, location, floor_area,
             author_name, building_type, operating_hours, occupants, energy_sources,
-            audit_date, savings_target, audit_purpose, background, scope, tariff_rate,
+            audit_date, savings_target, background, tariff_rate,
             emission_factor, report_reference, report_text, report_generated_at,
             submitted_at, version, updated_at, findings
          ) VALUES (
             $1, $2, $3, $4, COALESCE($5, 'draft'), $6, $7, $8, $9, $10, $11, $12,
-            NULLIF($13, '')::date, $14, $15, $16, $17, $18, $19, NULLIF($20, ''),
-            $21, CASE WHEN $21 = '' THEN NULL ELSE now() END, NULL, 1, now(), COALESCE($22, '')
+            NULLIF($13, '')::date, $14, $15, $16, $17, NULLIF($18, ''),
+            $19, CASE WHEN $19 = '' THEN NULL ELSE now() END, NULL, 1, now(), COALESCE($20, '')
          )
          ON CONFLICT (id) DO UPDATE SET
             facility_id = EXCLUDED.facility_id,
@@ -230,15 +226,13 @@ async function saveAudit(client, userId, auditId, data, status = null) {
             energy_sources = EXCLUDED.energy_sources,
             audit_date = EXCLUDED.audit_date,
             savings_target = EXCLUDED.savings_target,
-            audit_purpose = EXCLUDED.audit_purpose,
             background = EXCLUDED.background,
-            scope = EXCLUDED.scope,
             tariff_rate = EXCLUDED.tariff_rate,
             emission_factor = EXCLUDED.emission_factor,
             report_reference = EXCLUDED.report_reference,
             report_text = EXCLUDED.report_text,
             report_generated_at = CASE WHEN EXCLUDED.report_text = '' THEN NULL ELSE now() END,
-            findings = CASE WHEN $22::text IS NULL THEN audits.findings ELSE EXCLUDED.findings END,
+            findings = CASE WHEN $20::text IS NULL THEN audits.findings ELSE EXCLUDED.findings END,
             submitted_at = CASE WHEN $5 = 'pending' THEN COALESCE(audits.submitted_at, now()) ELSE audits.submitted_at END,
             reviewed_at = CASE WHEN $5 IS NOT NULL THEN audits.reviewed_at ELSE NULL END,
             reviewed_by = CASE WHEN $5 IS NOT NULL THEN audits.reviewed_by ELSE NULL END,
@@ -251,9 +245,8 @@ async function saveAudit(client, userId, auditId, data, status = null) {
             info.facilityLocation, parseNullableNumber(info.floorArea), info.authorName,
             info.buildingType, parseNullableNumber(info.operatingHours),
             parseNullableNumber(info.occupants), info.energySources, info.auditDate,
-            info.savingsTarget, info.auditPurpose, info.background, info.scope,
-            parsed.tariffRate, parsed.emissionFactor, parsed.reportReference, parsed.report,
-            parsed.findings ?? null
+            info.savingsTarget, info.background, parsed.tariffRate, parsed.emissionFactor,
+            parsed.reportReference, parsed.report, parsed.findings ?? null
         ]
     );
     if (!result.rowCount) {

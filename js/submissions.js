@@ -86,9 +86,7 @@ function getAuditReadinessIssue() {
         ['facilityLocation', 'Enter the facility location.'],
         ['authorName', 'Auditor name is missing from this profile.'],
         ['energySources', 'Enter the facility energy sources.'],
-        ['auditDate', 'Enter the audit date.'],
-        ['auditPurpose', 'Enter the audit purpose.'],
-        ['auditScope', 'Enter the audit scope and systems covered.']
+        ['auditDate', 'Enter the audit date.']
     ];
     for (const [id, message] of requiredFields) {
         const element = document.getElementById(id);
@@ -136,8 +134,6 @@ function clearAuditEntryFields() {
         'authorName',
         'energySources',
         'auditDate',
-        'auditPurpose',
-        'auditScope',
         'hostelName',
         'equipment',
         'wattage',
