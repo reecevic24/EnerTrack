@@ -206,6 +206,113 @@ test('keeps the facility submission instruction unchanged after an audit is subm
     assert.equal(status.textContent, 'To submit this audit for approval, add at least one equipment recommendation.');
 });
 
+test('prevents auditors from deleting equipment while an audit is pending approval', async () => {
+    const [submissionResponse, auditResponse, inventoryResponse] = await Promise.all([
+        fetch(`${baseUrl}/js/submissions.js`),
+        fetch(`${baseUrl}/js/audits.js`),
+        fetch(`${baseUrl}/js/inventory-charts.js`)
+    ]);
+    const item = {
+        id: 'equipment-1',
+        category: 'Lighting',
+        name: 'LED',
+        watts: 30,
+        qty: 1,
+        hours: 8,
+        dailyKwh: 0.24,
+        monthlyKwh: 7.2,
+        monthlyCost: 86.4,
+        monthlyCarbon: 0.36
+    };
+    const record = { id: 'audit-1', key: 'Library', inventory: [item] };
+    const alerts = [];
+    const elements = new Map([
+        ['inventoryActionHeader', { style: {} }],
+        ['inventoryBody', {
+            rows: [],
+            set innerHTML(value) {
+                if (value === '') this.rows = [];
+            },
+            appendChild(row) { this.rows.push(row); }
+        }]
+    ]);
+    const context = {
+        currentUser: { role: 'auditor' },
+        selectedFacility: 'Library',
+        selectedHostelName: '',
+        audits: [record],
+        facilityNames: ['Library'],
+        inventory: record.inventory,
+        sharedSubmissions: [{ id: 'audit-1', auditKey: 'Library', status: 'pending' }],
+        apiRequest: async () => ({
+            audits: [{
+                id: 'audit-1',
+                key: 'Library',
+                facilityId: 'Library',
+                status: 'pending',
+                inventory: [item],
+                historicalData: [],
+                photos: []
+            }]
+        }),
+        document: {
+            getElementById: id => elements.get(id),
+            createElement: () => ({
+                children: [],
+                appendChild(child) { this.children.push(child); },
+                addEventListener() {}
+            })
+        },
+        getCurrentAudit: () => record,
+        loadSharedSubmissions: async () => {},
+        updateSubmissionStatus() {},
+        saveUserData() { throw new Error('Pending audit must not be saved after deletion.'); },
+        calculateAll() {},
+        updateAuditReportDisplay() {},
+        reportApiError(error) { throw error; },
+        alert: message => alerts.push(message)
+    };
+    vm.createContext(context);
+    vm.runInContext(await submissionResponse.text(), context);
+    vm.runInContext(await auditResponse.text(), context);
+    vm.runInContext(await inventoryResponse.text(), context);
+
+    context.renderInventoryTable();
+    await context.deleteItem('equipment-1');
+
+    assert.equal(elements.get('inventoryActionHeader').style.display, 'none');
+    assert.equal(elements.get('inventoryBody').rows[0].children.length, 9);
+    assert.equal(record.inventory.length, 1);
+    assert.match(alerts[0], /submitted for approval cannot be deleted/i);
+});
+
+test('approval confirmation names Gross Campus Monthly Energy', async () => {
+    const response = await fetch(`${baseUrl}/js/admin-review.js`);
+    const confirmations = [];
+    const alerts = [];
+    const context = {
+        currentUser: { role: 'admin' },
+        sharedSubmissions: [],
+        API_BASE: '',
+        isAdministrator: () => true,
+        confirm: message => {
+            confirmations.push(message);
+            return true;
+        },
+        apiRequest: async () => ({ audit: { id: 'audit-1', status: 'approved' } }),
+        replaceSubmission() {},
+        renderInventoryTable() {},
+        saveSharedSubmissions() {},
+        alert: message => alerts.push(message)
+    };
+    vm.runInNewContext(await response.text(), context);
+
+    await context.approveSubmission('audit-1');
+
+    assert.match(confirmations[0], /Gross Campus Monthly Energy/);
+    assert.equal(alerts[0], 'Audit approved. It is now included in Gross Campus Monthly Energy.');
+});
+
 test('resets the facility entry screen without selecting the just-submitted audit', async () => {
     const response = await fetch(`${baseUrl}/js/audits.js`);
     const calls = [];

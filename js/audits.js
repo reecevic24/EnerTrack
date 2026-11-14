@@ -862,6 +862,11 @@ async function deleteItem(id) {
         reportApiError(error);
         return;
     }
+    if (isAuditSubmittedForApproval(record)) {
+        updateSubmissionStatus();
+        alert('Equipment in an audit submitted for approval cannot be deleted.');
+        return;
+    }
     if (isAuditLockedAsApproved(record)) {
         updateSubmissionStatus();
         alert('Equipment in an approved audit cannot be deleted.');

@@ -73,6 +73,10 @@ function isAuditLockedAsApproved(record) {
     return submission?.status === 'approved' && !auditHasUnsubmittedChanges(record, submission);
 }
 
+function isAuditSubmittedForApproval(record) {
+    return findSubmissionForAudit(record)?.status === 'pending';
+}
+
 function findSubmissionForAudit(record) {
     if (!record) return null;
     return sharedSubmissions.find(item =>

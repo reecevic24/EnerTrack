@@ -20,16 +20,19 @@ function updateAuditReportDisplay(selectedRecord) {
 
 function renderInventoryTable() {
     const tbody = document.getElementById('inventoryBody');
-    const isApproved = isAuditLockedAsApproved(getCurrentAudit(false));
+    const activeRecord = getCurrentAudit(false);
+    const isSubmitted = isAuditSubmittedForApproval(activeRecord);
+    const isApproved = isAuditLockedAsApproved(activeRecord);
+    const isLocked = isSubmitted || isApproved;
     const readOnly = isAdministrator();
     const actionHeader = document.getElementById('inventoryActionHeader');
-    actionHeader.style.display = isApproved || readOnly ? 'none' : '';
+    actionHeader.style.display = isLocked || readOnly ? 'none' : '';
     tbody.innerHTML = '';
 
     if (inventory.length === 0) {
         tbody.innerHTML = `
                     <tr>
-                        <td colspan="${isApproved || readOnly ? 9 : 10}" class="empty-state">No inventory added yet. Add equipment from the Facilities tab.</td>
+                        <td colspan="${isLocked || readOnly ? 9 : 10}" class="empty-state">No inventory added yet. Add equipment from the Facilities tab.</td>
                     </tr>`;
         return;
     }
@@ -65,7 +68,7 @@ function renderInventoryTable() {
             }
             tr.appendChild(cell);
         });
-        if (!isApproved && !readOnly) {
+        if (!isLocked && !readOnly) {
             const actionCell = document.createElement('td');
             const deleteButton = document.createElement('button');
             deleteButton.className = 'btn-delete';

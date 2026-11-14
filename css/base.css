@@ -397,14 +397,8 @@ input:focus, select:focus, textarea:focus {
     color: #ffffff;
 }
 
-.btn-neutral {
-    background: #64748b;
-    color: #ffffff;
-    border-color: #94a3b8;
-}
-
 .btn-neutral:hover {
-    background: #475569;
+    background: #64748b;
     color: #ffffff;
 }
 

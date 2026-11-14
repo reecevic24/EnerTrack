@@ -339,7 +339,7 @@ function renderAdminReviewQueue() {
 
 async function approveSubmission(id) {
     if (!isAdministrator()) return;
-    if (!confirm('Approve this audit and include its data in university-wide totals?')) return;
+    if (!confirm('Approve this audit and include its data in Gross Campus Monthly Energy?')) return;
     try {
         const { audit: approvedSubmission } = await apiRequest(`/api/admin/audits/${encodeURIComponent(id)}/review`, {
             method: 'PATCH',
@@ -348,7 +348,7 @@ async function approveSubmission(id) {
         replaceSubmission(approvedSubmission);
         renderInventoryTable();
         saveSharedSubmissions();
-        alert('Audit approved. It is now included in university-wide totals.');
+        alert('Audit approved. It is now included in Gross Campus Monthly Energy.');
     } catch (error) {
         reportApiError(error);
     }
