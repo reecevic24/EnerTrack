@@ -197,8 +197,13 @@
     .equipment-details-panel,
     .print-orientation-control,
     .ai-generate,
+    #submitAuditForApprovalButton,
     th:last-child,
     td:last-child {
+        display: none !important;
+    }
+
+    body.admin-print-report #auditEquipmentInventoryPanel {
         display: none !important;
     }
 

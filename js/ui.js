@@ -64,6 +64,12 @@ function handlePrintReport() {
     } else if (currentUser && currentUser.name) {
         document.getElementById('printHeaderUserName').textContent = currentUser.name;
     }
+    if (currentUser && currentUser.role === 'admin') {
+        window.addEventListener('afterprint', () => {
+            document.body.classList.remove('admin-print-report');
+        }, { once: true });
+        document.body.classList.add('admin-print-report');
+    }
     window.print();
 }
 

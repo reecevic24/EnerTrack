@@ -181,6 +181,48 @@ test('university breakdown print header shows the print date instead of the audi
     assert.equal(bodyClasses.has('print-university-breakdown'), false);
 });
 
+test('admin report printing hides saved inventory and the approval button only for print', () => {
+    const callbacks = {};
+    const bodyClasses = new Set();
+    const document = {
+        body: {
+            classList: {
+                add(className) { bodyClasses.add(className); },
+                remove(className) { bodyClasses.delete(className); }
+            }
+        },
+        getElementById(id) {
+            if (id === 'authorName') return { value: '' };
+            if (id === 'printHeaderUserName') return { textContent: '' };
+            return null;
+        }
+    };
+    const context = {
+        currentUser: { role: 'admin', name: 'Admin User' },
+        document,
+        window: {
+            addEventListener(eventName, callback) { callbacks[eventName] = callback; },
+            print() {}
+        },
+        updateFacilityLabels() {}
+    };
+    vm.createContext(context);
+    vm.runInContext(fs.readFileSync(path.join(repositoryRoot, 'js/ui.js'), 'utf8'), context);
+
+    context.handlePrintReport();
+
+    assert.equal(bodyClasses.has('admin-print-report'), true);
+    callbacks.afterprint();
+    assert.equal(bodyClasses.has('admin-print-report'), false);
+
+    const html = fs.readFileSync(path.join(repositoryRoot, 'index.html'), 'utf8');
+    const styles = fs.readFileSync(path.join(repositoryRoot, 'css/components.css'), 'utf8');
+    assert.match(html, /<!-- EQUIPMENT AUDIT INVENTORY LIST -->\s*<section id="auditEquipmentInventoryPanel"/);
+    assert.match(styles, /#submitAuditForApprovalButton,\s*th:last-child/);
+    assert.match(styles, /body\.admin-print-report #auditEquipmentInventoryPanel\s*\{\s*display: none !important;/);
+    assert.doesNotMatch(styles, /body\.admin-print-report #adminEquipmentCalculator/);
+});
+
 test('administrator report selector lists every audit and available facility distinctly', () => {
     const { context, nodes } = createReportContext();
     context.currentUser = { role: 'admin' };
