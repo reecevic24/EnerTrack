@@ -421,6 +421,12 @@ input:focus, select:focus, textarea:focus {
     opacity: 0.8;
 }
 
+.btn-green-hover:not(:disabled):hover {
+    background: #16a34a;
+    border-color: #15803d;
+    color: #ffffff;
+}
+
 .btn-clear-all {
     background: rgba(239, 68, 68, 0.15);
     color: #f87171;

@@ -317,7 +317,7 @@
                     <div class="action-row">
                         <label for="reportFacilitySelector">Facility report:</label>
                         <select id="reportFacilitySelector" onchange="handleReportFacilitySelection()" aria-label="Select facility for report"></select>
-                        <button id="generateAuditReportButton" class="btn-action btn-green-action ai-generate" onclick="generateAuditReport()" disabled>Generate Comprehensive Report</button>
+                        <button id="generateAuditReportButton" class="btn-action btn-green-hover ai-generate" onclick="generateAuditReport()" disabled>Generate Comprehensive Report</button>
                     </div>
                 </div>
                 <p class="facility-hint" style="margin: 0.8rem 0;">Creates an on-device, data-driven analysis of energy use, equipment, bills, evidence, and recommendations. Audit data is not sent to an external AI service.</p>
@@ -330,12 +330,12 @@
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.75rem;">
                     <h4 style="margin: 0; border: none; padding: 0;">📋 Equipment Audit Inventory List</h4>
                     <div class="action-row">
-                        <button class="btn-action btn-green-action" onclick="handlePrintFacilitySelection()">Refresh</button>
+                        <button class="btn-action btn-green-hover" onclick="handlePrintFacilitySelection()">Refresh</button>
                         <div class="print-orientation-control">
                             <label for="printFacilitySelector">Facility:</label>
                             <select id="printFacilitySelector" onchange="handlePrintFacilitySelection()"></select>
                         </div>
-                        <button class="btn-action btn-green-action" onclick="handlePrintReport()">🖨️ Print Report</button>
+                        <button class="btn-action btn-green-hover" onclick="handlePrintReport()">🖨️ Print Report</button>
                     </div>
                 </div>
 
