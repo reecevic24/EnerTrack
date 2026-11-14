@@ -212,7 +212,7 @@
                         <input type="text" id="authorName" placeholder="Filled from your account" readonly aria-readonly="true" required>
                     </div>
                     <div class="form-group"><label for="energySources">Energy sources</label><input type="text" id="energySources" placeholder="e.g. Grid electricity, solar, generator" onchange="saveFacilityDetails()" required></div>
-                    <div class="form-group"><label for="auditDate">Date of audit</label><input type="date" id="auditDate" onchange="saveFacilityDetails()" required></div>
+                    <div class="form-group"><label for="auditDate">Date of audit</label><input type="date" id="auditDate" readonly aria-readonly="true" title="Set automatically when the audit is started" required></div>
                 </div>
             </section>
 
@@ -384,7 +384,7 @@
                     <p class="facility-hint">Enter current equipment. Each row and the pie chart show calculated monthly energy use.</p>
                     <div id="actualEquipmentContainer"></div>
                     <div class="action-row" style="justify-content: flex-end; margin: 0.75rem 0;">
-                        <button class="btn-action btn-green-action" type="button" onclick="addEquipmentDetail('actual')">＋ Add existing equipment</button>
+                        <button class="btn-action btn-green-hover" type="button" onclick="addEquipmentDetail('actual')">＋ Add existing equipment</button>
                     </div>
                     <div class="chart-box-single equipment-pie-chart"><canvas id="actualEquipmentChart"></canvas></div>
                     <div class="equipment-calculation-results">
@@ -396,7 +396,7 @@
                     <p class="facility-hint">Enter proposed equipment. The pie chart compares its energy use with existing equipment and shows energy saved.</p>
                     <div id="recommendedEquipmentContainer"></div>
                     <div class="action-row" style="justify-content: flex-end; margin: 0.75rem 0;">
-                        <button class="btn-action btn-green-action" type="button" onclick="addEquipmentDetail('recommended')">＋ Add recommended equipment</button>
+                        <button class="btn-action btn-green-hover" type="button" onclick="addEquipmentDetail('recommended')">＋ Add recommended equipment</button>
                     </div>
                     <div class="chart-box-single equipment-pie-chart"><canvas id="recommendedEquipmentChart"></canvas></div>
                     <div class="equipment-calculation-results">
@@ -420,7 +420,7 @@
 
                 <div id="auditorCommentsContainer" class="auditor-comments-grid">
                 </div>
-                <button class="btn-action btn-green-action btn-add-load-box" type="button" onclick="addCustomLoadBox()">＋ Add equipment category</button>
+                <button class="btn-action btn-green-hover btn-add-load-box" type="button" onclick="addCustomLoadBox()">＋ Add equipment category</button>
                 <div id="recommendationSubmitSection" class="recommendation-submit-section" hidden>
                     <p id="recommendationSubmitHint" class="facility-hint" aria-live="polite">Enter at least one equipment recommendation to submit this audit.</p>
                     <button id="submitAuditForApprovalButton" class="btn-action btn-green-action" type="button" onclick="submitCurrentAudit()">Submit facility audit for approval</button>

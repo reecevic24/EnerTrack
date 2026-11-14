@@ -59,6 +59,8 @@ test('serves the updated frontend, assets, and existing API bridge', async () =>
     assert.match(pageText, /id="auditorRecommendationsPanel"/);
     assert.match(pageText, /id="submitAuditForApprovalButton"/);
     assert.match(pageText, /To submit this audit for approval, add at least one equipment recommendation\./);
+    assert.match(pageText, /id="auditDate" readonly aria-readonly="true"/);
+    assert.match(pageText, /btn-action btn-green-hover" type="button" onclick="addEquipmentDetail\('actual'\)"/);
     assert.doesNotMatch(pageText, /id="floorArea"/);
     assert.match(pageText, /id="regPass"[^>]*minlength="6"/);
     assert.match(pageText, /id="authorName"[^>]*readonly/);
@@ -76,7 +78,9 @@ test('serves the updated frontend, assets, and existing API bridge', async () =>
     vm.runInNewContext(configText, githubPagesConfig);
     assert.equal(githubPagesConfig.window.ENERTRACK_API_BASE_URL, 'https://enertrack-1.onrender.com');
     assert.equal(stylesheet.status, 200);
-    assert.match(await stylesheet.text(), /\.site-header/);
+    const stylesheetText = await stylesheet.text();
+    assert.match(stylesheetText, /\.site-header/);
+    assert.match(stylesheetText, /\.btn-green-hover:not\(:disabled\):hover\s*\{\s*background:\s*#16a34a/);
     assert.equal(frontendScript.status, 200);
     assert.match(await frontendScript.text(), /credentials: 'include'/);
     assert.equal(campusImage.status, 200);

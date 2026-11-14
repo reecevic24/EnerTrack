@@ -177,13 +177,20 @@ function normalizeHostelAudits() {
     audits = normalizedAudits;
 }
 
+function currentLocalDate() {
+    const date = new Date();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${date.getFullYear()}-${month}-${day}`;
+}
+
 function createEmptyFacilityInfo() {
     return {
         facilityLocation: '',
         floorArea: '',
         authorName: '',
         energySources: '',
-        auditDate: new Date().toISOString().slice(0, 10)
+        auditDate: currentLocalDate()
     };
 }
 
@@ -491,8 +498,6 @@ function saveFacilityDetails() {
     facilityInfo.facilityLocation = document.getElementById('facilityLocation').value.trim();
     if (currentUser && !isAdministrator()) facilityInfo.authorName = currentUser.name;
     facilityInfo.energySources = document.getElementById('energySources').value.trim();
-    facilityInfo.auditDate = document.getElementById('auditDate').value;
-
     if (currentUser) {
         const record = getCurrentAudit();
         if (record) {
@@ -516,13 +521,14 @@ function loadActiveAudit() {
     adminCalculationItems = [];
     facilityInfo = record ? { ...createEmptyFacilityInfo(), ...record.facilityInfo } : createEmptyFacilityInfo();
     if (!selectedFacility) facilityInfo.auditDate = '';
+    else if (!facilityInfo.auditDate) facilityInfo.auditDate = currentLocalDate();
     if (currentUser && !isAdministrator()) facilityInfo.authorName = currentUser.name;
     historicalData = record && Array.isArray(record.historicalData) ? record.historicalData : [];
     auditPhotos = record && Array.isArray(record.photos) ? record.photos : [];
     document.getElementById('facilityLocation').value = facilityInfo.facilityLocation || '';
     document.getElementById('authorName').value = facilityInfo.authorName || '';
     document.getElementById('energySources').value = facilityInfo.energySources || '';
-    document.getElementById('auditDate').value = facilityInfo.auditDate || (selectedFacility ? new Date().toISOString().slice(0, 10) : '');
+    document.getElementById('auditDate').value = facilityInfo.auditDate;
     const energySettings = record && record.energySettings
         ? { ...createDefaultEnergySettings(), ...record.energySettings }
         : createDefaultEnergySettings();
