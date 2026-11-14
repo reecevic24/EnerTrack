@@ -403,6 +403,9 @@ test('preserves each audit status and review metadata when background saves upda
     assert.match(auditRoutes, /current\.rows\[0\]\.status === 'approved'[\s\S]*Facility already approved/);
     assert.match(auditRoutes, /status <> 'approved' RETURNING id/);
     assert.match(auditRoutes, /audit\.rows\[0\]\.status === 'approved'[\s\S]*Facility already approved/);
+    assert.match(auditRoutes, /pg_advisory_xact_lock\(hashtext\(\$1\), hashtext\(\$2\)\)/);
+    assert.match(auditRoutes, /status IN \('pending', 'approved'\)/);
+    assert.match(auditRoutes, /AND status = 'approved'[\s\S]*LIMIT 1/);
 });
 
 test('skips approved audits during background saves without blocking other facilities', async () => {

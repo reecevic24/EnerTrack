@@ -433,7 +433,7 @@ router.post('/audits/:auditId/submit', requireAuditor, async (req, res, next) =>
         const auditId = uuidSchema.parse(req.params.auditId);
         await client.query('BEGIN');
         const audit = await client.query(
-            'SELECT status FROM audits WHERE id = $1 AND auditor_id = $2 FOR UPDATE',
+            'SELECT status, facility_id, hostel_name FROM audits WHERE id = $1 AND auditor_id = $2 FOR UPDATE',
             [auditId, req.session.user.id]
         );
         if (!audit.rowCount) {
@@ -443,6 +443,28 @@ router.post('/audits/:auditId/submit', requireAuditor, async (req, res, next) =>
         if (audit.rows[0].status === 'approved') {
             await client.query('ROLLBACK');
             return res.status(409).json({ error: 'Facility already approved' });
+        }
+        const facilityId = audit.rows[0].facility_id;
+        const hostelName = facilityId === 'Hostels' ? audit.rows[0].hostel_name.trim().toLowerCase() : '';
+        await client.query(
+            'SELECT pg_advisory_xact_lock(hashtext($1), hashtext($2))',
+            [facilityId, hostelName]
+        );
+        const existingSubmission = await client.query(
+            `SELECT status FROM audits
+             WHERE facility_id = $1
+               AND (facility_id <> 'Hostels' OR lower(hostel_name) = $2)
+               AND id <> $3
+               AND status IN ('pending', 'approved')
+             LIMIT 1`,
+            [facilityId, hostelName, auditId]
+        );
+        if (existingSubmission.rowCount) {
+            await client.query('ROLLBACK');
+            const error = existingSubmission.rows[0].status === 'approved'
+                ? 'Facility already approved'
+                : 'Facility already submitted for approval';
+            return res.status(409).json({ error });
         }
         const equipment = await client.query('SELECT count(*)::int AS count FROM audit_equipment WHERE audit_id = $1', [auditId]);
         if (!equipment.rows[0].count) {
@@ -631,7 +653,10 @@ router.patch('/admin/audits/:auditId/review', requireAdmin, async (req, res, nex
             comments: z.string().max(3000).optional().default('')
         }).parse(req.body);
         await client.query('BEGIN');
-        const current = await client.query('SELECT id, status FROM audits WHERE id = $1 FOR UPDATE', [auditId]);
+        const current = await client.query(
+            'SELECT id, status, facility_id, hostel_name FROM audits WHERE id = $1 FOR UPDATE',
+            [auditId]
+        );
         if (!current.rowCount) {
             await client.query('ROLLBACK');
             return res.status(404).json({ error: 'Audit not found.' });
@@ -639,6 +664,25 @@ router.patch('/admin/audits/:auditId/review', requireAdmin, async (req, res, nex
         if (current.rows[0].status !== 'pending') {
             await client.query('ROLLBACK');
             return res.status(409).json({ error: 'Only pending audits can be approved.' });
+        }
+        const facilityId = current.rows[0].facility_id;
+        const hostelName = facilityId === 'Hostels' ? current.rows[0].hostel_name.trim().toLowerCase() : '';
+        await client.query(
+            'SELECT pg_advisory_xact_lock(hashtext($1), hashtext($2))',
+            [facilityId, hostelName]
+        );
+        const existingApproval = await client.query(
+            `SELECT id FROM audits
+             WHERE facility_id = $1
+               AND (facility_id <> 'Hostels' OR lower(hostel_name) = $2)
+               AND id <> $3
+               AND status = 'approved'
+             LIMIT 1`,
+            [facilityId, hostelName, auditId]
+        );
+        if (existingApproval.rowCount) {
+            await client.query('ROLLBACK');
+            return res.status(409).json({ error: 'Facility already approved' });
         }
         const equipment = await client.query('SELECT count(*)::int AS count FROM audit_equipment WHERE audit_id = $1', [auditId]);
         if (!equipment.rows[0].count) {
