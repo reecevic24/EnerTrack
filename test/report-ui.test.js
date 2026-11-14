@@ -65,6 +65,12 @@ function createReportContext() {
         },
         DEFAULT_TARIFF_RATE: 12,
         DEFAULT_EMISSION_FACTOR: 0.05,
+        currentTariffRate: () => 12,
+        currentEmissionFactor: () => 0.05,
+        getUniversityEnergySummary: () => ({
+            summaries: [],
+            totals: { kwh: 90, cost: 1200, carbon: 4.5 }
+        }),
         audits: [
             {
                 id: 'library-audit',
@@ -113,18 +119,17 @@ function createReportContext() {
     return { context, nodes };
 }
 
-test('all-facilities report combines facility estimates and includes individual breakdowns', () => {
+test('all-facilities report shows university totals without auditor or facility details', () => {
     const { context, nodes } = createReportContext();
 
     context.generateAuditReport();
 
-    assert.match(nodes.aiReportContent.textContent, /ALL-FACILITIES ENERGY AUDIT REPORT/);
-    assert.match(nodes.aiReportContent.textContent, /Facilities and audit records included: 2/);
-    assert.match(nodes.aiReportContent.textContent, /Estimated consumption: 90\.00 kWh\/month/);
-    assert.match(nodes.aiReportContent.textContent, /Estimated cost: KES 1,200\.00\/month/);
-    assert.match(nodes.aiReportContent.textContent, /Library/);
-    assert.match(nodes.aiReportContent.textContent, /Hostels - Hostel A/);
-    assert.match(nodes.aiReportContent.textContent, /Replace remaining fluorescent lamps/);
+    assert.match(nodes.aiReportContent.textContent, /GROSS CAMPUS UNIVERSITY ENERGY REPORT/);
+    assert.match(nodes.aiReportContent.textContent, /Energy consumption: 90\.00 kWh/);
+    assert.match(nodes.aiReportContent.textContent, /Energy cost: KES 1,200\.00/);
+    assert.match(nodes.aiReportContent.textContent, /Carbon emissions: 4\.50 kg CO₂e/);
+    assert.doesNotMatch(nodes.aiReportContent.textContent, /Auditor|Library|Hostel A|RECOMMENDATIONS/i);
+    assert.equal(nodes.reportPhotoGallery.innerHTML, '');
 });
 
 test('report page provides a facility selector and a print-facility selector', () => {
@@ -173,17 +178,14 @@ test('administrator report selector lists every audit and available facility dis
     assert.equal(nodes.generateAuditReportButton.disabled, false);
 });
 
-test('administrator all-facilities report covers every audit and flags facilities with no data', () => {
+test('administrator all-facilities report contains only university totals', () => {
     const { context, nodes } = createReportContext();
     context.currentUser = { role: 'admin' };
 
     context.generateAuditReport();
 
-    assert.match(nodes.aiReportContent.textContent, /Facilities and audit records included: 3/);
-    assert.match(nodes.aiReportContent.textContent, /Audit records with equipment: 2/);
-    assert.match(nodes.aiReportContent.textContent, /Annex/);
-    assert.match(nodes.aiReportContent.textContent, /No audit record saved/);
-    assert.match(nodes.aiReportContent.textContent, /Energy estimate: Not available \(no equipment recorded\)/);
+    assert.match(nodes.aiReportContent.textContent, /Energy consumption: 90\.00 kWh/);
+    assert.doesNotMatch(nodes.aiReportContent.textContent, /Auditor|Annex|FACILITY DETAILS/i);
 });
 
 test('administrator can generate a report for the audit selected by its unique ID', () => {
