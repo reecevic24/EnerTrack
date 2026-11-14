@@ -196,6 +196,51 @@ test('prevents administrator accounts from entering or submitting audits', async
     assert.ok(alerts.every(message => /administrator accounts cannot/i.test(message)));
 });
 
+test('allows administrators to open the Conservation page', async () => {
+    const response = await fetch(`${baseUrl}/js/auth.js`);
+    const pages = new Map();
+    const tabs = new Map();
+    const createNavigationElement = () => ({
+        active: false,
+        classList: {
+            add(name) { if (name === 'active') this.owner.active = true; },
+            remove(name) { if (name === 'active') this.owner.active = false; },
+            owner: null
+        }
+    });
+    const createElement = () => {
+        const element = createNavigationElement();
+        element.classList.owner = element;
+        return element;
+    };
+    ['pageDashboard', 'pageFacilities', 'pageUniversity', 'pageAudit', 'pageMeasures', 'pageProfiles']
+        .forEach(id => pages.set(id, createElement()));
+    ['tabDashboard', 'tabFacilities', 'tabUniversity', 'tabAudit', 'tabMeasures', 'tabProfiles']
+        .forEach(id => tabs.set(id, createElement()));
+    let equipmentRenders = 0;
+    const context = {
+        currentUser: { role: 'admin' },
+        document: {
+            querySelectorAll(selector) {
+                return Array.from(selector === '.page-view' ? pages.values() : tabs.values());
+            },
+            getElementById(id) {
+                return pages.get(id) || tabs.get(id);
+            }
+        },
+        renderEquipmentDetails() {
+            equipmentRenders += 1;
+        }
+    };
+    vm.runInNewContext(await response.text(), context);
+
+    context.switchPage('measures');
+
+    assert.equal(pages.get('pageMeasures').active, true);
+    assert.equal(tabs.get('tabMeasures').active, true);
+    assert.equal(equipmentRenders, 1);
+});
+
 test('keeps the facility submission instruction unchanged after an audit is submitted', async () => {
     const response = await fetch(`${baseUrl}/js/submissions.js`);
     const status = { textContent: '' };
@@ -422,6 +467,7 @@ test('allows administrators to view facilities but prevents audit entry', async 
     const context = {
         currentUser: { role: 'admin' },
         updateUniversitySummary() {},
+        renderEquipmentDetails() {},
         document: {
             querySelectorAll: () => [],
             getElementById: id => ({ classList: { add: () => activated.push(id) } })
@@ -432,10 +478,12 @@ test('allows administrators to view facilities but prevents audit entry', async 
     context.switchPage('facilities');
     assert.deepEqual(activated, ['pageFacilities', 'tabFacilities']);
     context.switchPage('measures');
-    assert.deepEqual(activated, ['pageFacilities', 'tabFacilities']);
+    assert.deepEqual(activated, ['pageFacilities', 'tabFacilities', 'pageMeasures', 'tabMeasures']);
 
     context.switchPage('university');
-    assert.deepEqual(activated, ['pageFacilities', 'tabFacilities', 'pageUniversity', 'tabUniversity']);
+    assert.deepEqual(activated, [
+        'pageFacilities', 'tabFacilities', 'pageMeasures', 'tabMeasures', 'pageUniversity', 'tabUniversity'
+    ]);
 });
 
 test('exposes the personal dashboard loader to the sign-in flow', async () => {

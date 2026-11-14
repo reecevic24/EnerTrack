@@ -46,7 +46,7 @@ function renderProfiles() {
     document.getElementById('adminReviewPanel').style.display = admin ? 'block' : 'none';
     document.getElementById('mySubmissionPanel').hidden = admin;
     document.getElementById('tabFacilities').hidden = false;
-    document.getElementById('tabMeasures').hidden = admin;
+    document.getElementById('tabMeasures').hidden = false;
     document.getElementById('dashboardFacilitiesButton').hidden = false;
     document.getElementById('dashboardFacilitiesButton').textContent = admin
         ? 'View Facilities'
