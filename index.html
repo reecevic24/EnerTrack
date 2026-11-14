@@ -155,8 +155,8 @@
                 </div>
                 <p id="dashboardFacilityHint" class="facility-hint">Add equipment to a facility audit to include its measured consumption in the university total.</p>
                 <div class="action-row" style="margin-top: 1rem;">
-                    <button id="dashboardFacilitiesButton" class="btn-action" onclick="switchPage('facilities')">Open Facilities & Equipment</button>
-                    <button class="btn-action" onclick="switchPage('university')">View University Breakdown</button>
+                    <button id="dashboardFacilitiesButton" class="btn-action btn-neutral" onclick="switchPage('facilities')">Open Facilities & Equipment</button>
+                    <button class="btn-action btn-neutral" onclick="switchPage('university')">View University Breakdown</button>
                 </div>
             </section>
         </div>
@@ -183,7 +183,7 @@
                 <div class="chart-box-single"><canvas id="universityChart"></canvas></div>
             </section>
             <div style="display: flex; justify-content: flex-end;">
-                <button class="btn-action download-university-button" onclick="downloadUniversityBreakdown()">⬇️ Download full breakdown (PDF)</button>
+                <button class="btn-action btn-neutral download-university-button" onclick="downloadUniversityBreakdown()">⬇️ Download full breakdown (PDF)</button>
             </div>
         </div>
 
@@ -192,7 +192,7 @@
         <div id="pageFacilities" class="page-view">
             <section class="card-panel facility-info-card">
                 <h4>🏢 Facilities & Audit Details</h4>
-                <p id="administratorFacilityNotice" class="facility-hint" hidden>Administrator view: facility audit information is read-only. Select a facility to review its details.</p>
+                <p id="administratorFacilityNotice" class="facility-hint" hidden>Administrator view: saved audit information is read-only. Use the calculator below for temporary estimates; those entries are not saved to the audit or inventory.</p>
                 <div class="facility-picker">
                     <div class="form-group">
                         <label for="facilitySelector">Facility</label>
@@ -226,11 +226,26 @@
             <section class="card-panel load-analysis-section">
                 <h4>⚡ Equipment</h4>
                 <div id="adminFacilityInventory" class="table-responsive" hidden>
+                    <h5>Recorded audit equipment</h5>
                     <table>
                         <thead><tr><th>Category</th><th>Equipment Name</th><th>Power Rating</th><th>Quantity</th><th>Hours/Day</th></tr></thead>
                         <tbody id="adminFacilityInventoryBody"></tbody>
                     </table>
                 </div>
+                <section id="adminEquipmentCalculator" class="card-panel" hidden>
+                    <h5>Temporary equipment calculator</h5>
+                    <p class="facility-hint">Calculate equipment estimates without saving them to this audit, the inventory, or the audit report.</p>
+                    <div class="action-row" style="justify-content: flex-end;">
+                        <button class="btn-action" type="button" onclick="clearAdminEquipmentCalculations()">Clear calculations</button>
+                    </div>
+                    <p id="adminCalculationSummary" class="facility-hint" aria-live="polite">No temporary equipment calculated.</p>
+                    <div class="table-responsive">
+                        <table>
+                            <thead><tr><th>Category</th><th>Equipment</th><th>Watts</th><th>Quantity</th><th>Hours/Day</th><th>Monthly (kWh)</th><th>Monthly Cost (KES)</th><th>CO₂ (kg)</th></tr></thead>
+                            <tbody id="adminCalculationBody"><tr><td colspan="8" class="empty-state">No temporary equipment calculated.</td></tr></tbody>
+                        </table>
+                    </div>
+                </section>
                 <form id="auditForm" onsubmit="event.preventDefault(); addEquipment();">
                     <div class="form-grid">
                         <div class="form-group">
@@ -246,7 +261,7 @@
                         <div class="form-group"><label for="wattage">Active Power Rating (Watts)</label><input type="number" id="wattage" min="0.1" step="any" required></div>
                         <div class="form-group"><label for="availableNumber">Available Quantity</label><input type="number" id="availableNumber" min="1" required></div>
                         <div class="form-group"><label for="operatingHours">Operating Hours Per Day (Hrs)</label><input type="number" id="operatingHours" min="0.1" max="24" step="any" required></div>
-                        <button type="submit" class="btn-calc">Calculate and Add Inventory</button>
+                        <button id="equipmentSubmitButton" type="submit" class="btn-calc">Calculate and Add Inventory</button>
                     </div>
                 </form>
             </section>
@@ -302,7 +317,7 @@
                     <div class="action-row">
                         <label for="reportFacilitySelector">Facility report:</label>
                         <select id="reportFacilitySelector" onchange="handleReportFacilitySelection()" aria-label="Select facility for report"></select>
-                        <button id="generateAuditReportButton" class="btn-action ai-generate" onclick="generateAuditReport()" disabled>Generate Comprehensive Report</button>
+                        <button id="generateAuditReportButton" class="btn-action btn-green-action ai-generate" onclick="generateAuditReport()" disabled>Generate Comprehensive Report</button>
                     </div>
                 </div>
                 <p class="facility-hint" style="margin: 0.8rem 0;">Creates an on-device, data-driven analysis of energy use, equipment, bills, evidence, and recommendations. Audit data is not sent to an external AI service.</p>
@@ -315,12 +330,12 @@
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.75rem;">
                     <h4 style="margin: 0; border: none; padding: 0;">📋 Equipment Audit Inventory List</h4>
                     <div class="action-row">
-                        <button class="btn-action" onclick="handlePrintFacilitySelection()">Refresh</button>
+                        <button class="btn-action btn-green-action" onclick="handlePrintFacilitySelection()">Refresh</button>
                         <div class="print-orientation-control">
                             <label for="printFacilitySelector">Facility:</label>
                             <select id="printFacilitySelector" onchange="handlePrintFacilitySelection()"></select>
                         </div>
-                        <button class="btn-action" onclick="handlePrintReport()">🖨️ Print Report</button>
+                        <button class="btn-action btn-green-action" onclick="handlePrintReport()">🖨️ Print Report</button>
                     </div>
                 </div>
 
@@ -369,7 +384,7 @@
                     <p class="facility-hint">Enter current equipment. Each row and the pie chart show calculated monthly energy use.</p>
                     <div id="actualEquipmentContainer"></div>
                     <div class="action-row" style="justify-content: flex-end; margin: 0.75rem 0;">
-                        <button class="btn-action" type="button" onclick="addEquipmentDetail('actual')">＋ Add existing equipment</button>
+                        <button class="btn-action btn-green-action" type="button" onclick="addEquipmentDetail('actual')">＋ Add existing equipment</button>
                     </div>
                     <div class="chart-box-single equipment-pie-chart"><canvas id="actualEquipmentChart"></canvas></div>
                     <div class="equipment-calculation-results">
@@ -381,7 +396,7 @@
                     <p class="facility-hint">Enter proposed equipment. The pie chart compares its energy use with existing equipment and shows energy saved.</p>
                     <div id="recommendedEquipmentContainer"></div>
                     <div class="action-row" style="justify-content: flex-end; margin: 0.75rem 0;">
-                        <button class="btn-action" type="button" onclick="addEquipmentDetail('recommended')">＋ Add recommended equipment</button>
+                        <button class="btn-action btn-green-action" type="button" onclick="addEquipmentDetail('recommended')">＋ Add recommended equipment</button>
                     </div>
                     <div class="chart-box-single equipment-pie-chart"><canvas id="recommendedEquipmentChart"></canvas></div>
                     <div class="equipment-calculation-results">
@@ -405,10 +420,10 @@
 
                 <div id="auditorCommentsContainer" class="auditor-comments-grid">
                 </div>
-                <button class="btn-action btn-add-load-box" type="button" onclick="addCustomLoadBox()">＋ Add equipment category</button>
+                <button class="btn-action btn-green-action btn-add-load-box" type="button" onclick="addCustomLoadBox()">＋ Add equipment category</button>
                 <div id="recommendationSubmitSection" class="recommendation-submit-section" hidden>
                     <p id="recommendationSubmitHint" class="facility-hint" aria-live="polite">Enter at least one equipment recommendation to submit this audit.</p>
-                    <button id="submitAuditForApprovalButton" class="btn-action" type="button" onclick="submitCurrentAudit()">Submit facility audit for approval</button>
+                    <button id="submitAuditForApprovalButton" class="btn-action btn-green-action" type="button" onclick="submitCurrentAudit()">Submit facility audit for approval</button>
                 </div>
             </section>
 

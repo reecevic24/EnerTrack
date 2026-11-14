@@ -513,6 +513,7 @@ function saveFacilityDetails() {
 function loadActiveAudit() {
     const record = getCurrentAudit();
     inventory = record ? record.inventory : [];
+    adminCalculationItems = [];
     facilityInfo = record ? { ...createEmptyFacilityInfo(), ...record.facilityInfo } : createEmptyFacilityInfo();
     if (!selectedFacility) facilityInfo.auditDate = '';
     if (currentUser && !isAdministrator()) facilityInfo.authorName = currentUser.name;
@@ -530,6 +531,7 @@ function loadActiveAudit() {
     renderHistoricalData(historicalData);
     renderAuditPhotos(auditPhotos);
     renderAdminFacilityInventory();
+    renderAdminCalculationResults();
     setFacilityReadOnly();
     updateFacilityLabels();
     calculateAll();
@@ -573,17 +575,26 @@ function setFacilityReadOnly() {
     const page = document.getElementById('pageFacilities');
     if (!page) return;
     const facilitySelector = document.getElementById('facilitySelector');
+    const auditForm = document.getElementById('auditForm');
+    const adminCalculator = document.getElementById('adminEquipmentCalculator');
     page.querySelectorAll('input, select, textarea, button').forEach(control => {
-        control.disabled = adminView && control !== facilitySelector;
+        control.disabled = adminView &&
+            control !== facilitySelector &&
+            !(auditForm && auditForm.contains(control)) &&
+            !(adminCalculator && adminCalculator.contains(control));
     });
     if (facilitySelector) facilitySelector.disabled = false;
     document.getElementById('administratorFacilityNotice').hidden = !adminView;
-    document.getElementById('auditForm').hidden = adminView;
+    auditForm.hidden = false;
+    document.getElementById('adminEquipmentCalculator').hidden = !adminView;
     document.getElementById('auditPhotoUpload').hidden = adminView;
     document.getElementById('auditSubmissionPanel').hidden = adminView;
     document.getElementById('historyActionHeader').hidden = adminView;
     const hostelSaveButton = document.querySelector('#hostelNameGroup button');
     if (hostelSaveButton) hostelSaveButton.hidden = adminView;
+    document.getElementById('equipmentSubmitButton').textContent = adminView
+        ? 'Calculate only'
+        : 'Calculate and Add Inventory';
 }
 
 function resetFacilityEntryAfterSubmission() {
@@ -729,7 +740,7 @@ function saveUserData() {
 
 function addEquipment() {
     if (isAdministrator()) {
-        alert('Administrator accounts cannot add equipment to audits.');
+        calculateAdminEquipment();
         return;
     }
     if (selectedFacility === 'Hostels' && !selectedHostelName) {
@@ -761,6 +772,85 @@ function addEquipment() {
     calculateAll();
     updateAuditReportDisplay();
     handleFacilitySelection();
+}
+
+function calculateAdminEquipment() {
+    const category = document.getElementById('equipmentCategory').value;
+    const name = document.getElementById('equipment').value.trim();
+    const watts = Number(document.getElementById('wattage').value);
+    const qty = Number(document.getElementById('availableNumber').value);
+    const hours = Number(document.getElementById('operatingHours').value);
+
+    if (!name || !Number.isFinite(watts) || watts <= 0 ||
+        !Number.isInteger(qty) || qty < 1 ||
+        !Number.isFinite(hours) || hours <= 0 || hours > 24) {
+        alert('Enter a valid equipment name, positive power, whole-number quantity, and daily operating hours from 0 to 24.');
+        return;
+    }
+
+    adminCalculationItems.push({
+        id: `temporary_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+        category,
+        name,
+        watts,
+        pf: 1,
+        qty,
+        hours
+    });
+    renderAdminCalculationResults();
+    document.getElementById('auditForm').reset();
+}
+
+function clearAdminEquipmentCalculations() {
+    adminCalculationItems = [];
+    renderAdminCalculationResults();
+}
+
+function renderAdminCalculationResults() {
+    const container = document.getElementById('adminEquipmentCalculator');
+    const body = document.getElementById('adminCalculationBody');
+    const summary = document.getElementById('adminCalculationSummary');
+    if (!container || !body || !summary) return;
+
+    container.hidden = !isAdministrator();
+    body.innerHTML = '';
+    if (!adminCalculationItems.length) {
+        const row = document.createElement('tr');
+        const cell = document.createElement('td');
+        cell.colSpan = 8;
+        cell.className = 'empty-state';
+        cell.textContent = 'No temporary equipment calculated.';
+        row.appendChild(cell);
+        body.appendChild(row);
+        summary.textContent = 'No temporary equipment calculated.';
+        return;
+    }
+
+    const totals = calculateInventoryTotals(
+        adminCalculationItems,
+        currentTariffRate(),
+        currentEmissionFactor()
+    );
+    adminCalculationItems.forEach(item => {
+        const row = document.createElement('tr');
+        [
+            item.category,
+            item.name,
+            `${item.watts} W`,
+            item.qty,
+            `${item.hours} hrs`,
+            item.monthlyKwh.toFixed(2),
+            item.monthlyCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+            item.monthlyCarbon.toFixed(2)
+        ].forEach(value => {
+            const cell = document.createElement('td');
+            cell.textContent = value;
+            row.appendChild(cell);
+        });
+        body.appendChild(row);
+    });
+    const format = value => value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    summary.textContent = `${adminCalculationItems.length} temporary item(s) · ${format(totals.monthlyKwh)} kWh/month · KES ${format(totals.monthlyCost)}/month · ${format(totals.monthlyCarbon)} kg CO₂e/month`;
 }
 
 async function deleteItem(id) {

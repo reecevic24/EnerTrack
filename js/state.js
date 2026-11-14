@@ -8,6 +8,7 @@ let sharedSubmissions = [];
 let barChartInstance = null;
 let universityChartInstance = null;
 let equipmentDetails = { actual: [], recommended: [] };
+let adminCalculationItems = [];
 let actualEquipmentChartInstance = null;
 let recommendedEquipmentChartInstance = null;
 let selectedFacility = 'Admin';
