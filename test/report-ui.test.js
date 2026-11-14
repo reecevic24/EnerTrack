@@ -138,6 +138,47 @@ test('report page provides a facility selector and a print-facility selector', (
     assert.match(html, /id="reportFacilitySelector"/);
     assert.match(html, /id="generateAuditReportButton"/);
     assert.match(html, /id="printFacilitySelector"/);
+    assert.match(html, /id="printHeaderUserLabel">Auditor/);
+});
+
+test('university breakdown print header shows the print date instead of the auditor name', async () => {
+    const callbacks = {};
+    const nodes = {
+        printHeaderUserLabel: { textContent: 'Auditor' },
+        printHeaderUserName: { textContent: 'Auditor One' }
+    };
+    const bodyClasses = new Set();
+    const context = {
+        document: {
+            body: {
+                classList: {
+                    add(className) { bodyClasses.add(className); },
+                    remove(className) { bodyClasses.delete(className); }
+                }
+            },
+            getElementById(id) { return nodes[id] || null; }
+        },
+        window: {
+            addEventListener(eventName, callback) { callbacks[eventName] = callback; },
+            print() {}
+        },
+        requestAnimationFrame(callback) { callback(); },
+        updateUniversitySummary() {}
+    };
+    vm.createContext(context);
+    vm.runInContext(fs.readFileSync(path.join(repositoryRoot, 'js/ui.js'), 'utf8'), context);
+
+    await context.downloadUniversityBreakdown();
+
+    assert.equal(nodes.printHeaderUserLabel.textContent, 'Date of print');
+    assert.equal(nodes.printHeaderUserName.textContent, new Date().toLocaleDateString());
+    assert.equal(bodyClasses.has('print-university-breakdown'), true);
+
+    callbacks.afterprint();
+
+    assert.equal(nodes.printHeaderUserLabel.textContent, 'Auditor');
+    assert.equal(nodes.printHeaderUserName.textContent, 'Auditor One');
+    assert.equal(bodyClasses.has('print-university-breakdown'), false);
 });
 
 test('administrator report selector lists every audit and available facility distinctly', () => {

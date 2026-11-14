@@ -70,6 +70,10 @@ function handlePrintReport() {
 async function downloadUniversityBreakdown() {
     updateUniversitySummary();
     const canvas = document.getElementById('universityChart');
+    const printHeaderUserLabel = document.getElementById('printHeaderUserLabel');
+    const printHeaderUserName = document.getElementById('printHeaderUserName');
+    const previousPrintHeaderUserLabel = printHeaderUserLabel.textContent;
+    const previousPrintHeaderUserName = printHeaderUserName.textContent;
     let printImage = null;
     if (canvas && universityChartInstance) {
         try {
@@ -91,9 +95,13 @@ async function downloadUniversityBreakdown() {
 
     const cleanupPrintView = () => {
         if (printImage) printImage.remove();
+        printHeaderUserLabel.textContent = previousPrintHeaderUserLabel;
+        printHeaderUserName.textContent = previousPrintHeaderUserName;
         document.body.classList.remove('print-university-breakdown');
     };
     window.addEventListener('afterprint', cleanupPrintView, { once: true });
+    printHeaderUserLabel.textContent = 'Date of print';
+    printHeaderUserName.textContent = new Date().toLocaleDateString();
     document.body.classList.add('print-university-breakdown');
     requestAnimationFrame(() => window.print());
 }
