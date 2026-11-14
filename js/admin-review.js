@@ -215,7 +215,7 @@ function renderAdminReviewQueue() {
     const submissions = sharedSubmissions.filter(submission =>
         activeAuditView === 'pending'
             ? submission.status === 'pending'
-            : submission.status === 'approved' || submission.status === 'discarded' || submission.status === 'draft'
+            : submission.status === 'approved' || submission.status === 'discarded'
     );
     if (!submissions.length) {
         queue.textContent = activeAuditView === 'pending'

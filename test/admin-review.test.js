@@ -116,3 +116,34 @@ test('pending audit review omits floor area, building type, and audit findings',
     assert.match(content, /Energy sources/);
     assert.match(content, /Replace old lighting/);
 });
+
+test('audit status list excludes drafts but retains approved audits', () => {
+    const queue = new MockElement('div');
+    const context = {
+        document: {
+            getElementById(id) {
+                return id === 'adminReviewQueue' ? queue : null;
+            },
+            createElement(tagName) {
+                return new MockElement(tagName);
+            }
+        },
+        sharedSubmissions: [
+            { id: 'draft-audit', status: 'draft', facilityId: 'Draft Facility', auditorName: 'Draft Auditor' },
+            { id: 'approved-audit', status: 'approved', facilityId: 'Approved Facility', auditorName: 'Approved Auditor' }
+        ],
+        isAdministrator: () => true,
+        currentAuditLabel: submission => submission.facilityId
+    };
+    vm.createContext(context);
+    vm.runInContext(
+        fs.readFileSync(path.join(repositoryRoot, 'js/admin-review.js'), 'utf8'),
+        context,
+        { filename: 'js/admin-review.js' }
+    );
+
+    vm.runInContext("activeAuditView = 'status'; renderAdminReviewQueue();", context);
+
+    assert.match(queue.textContent, /Approved Facility · APPROVED/);
+    assert.doesNotMatch(queue.textContent, /Draft Facility|DRAFT/);
+});

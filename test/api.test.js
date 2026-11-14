@@ -53,6 +53,8 @@ test('serves the updated frontend, assets, and existing API bridge', async () =>
     assert.match(pageText, /id="seeAdminsButton"/);
     assert.match(pageText, /id="approveAuditsButton"/);
     assert.match(pageText, /id="auditStatusButton"/);
+    assert.doesNotMatch(pageText, /id="adminFacilityInventory"/);
+    assert.match(pageText, /id="adminEquipmentCalculator"/);
     assert.match(pageText, /onclick="beginAuditRecommendations\(\)">Add recommendations/);
     assert.match(pageText, /id="mySubmissionPanel"/);
     assert.match(pageText, /Submitted details are read-only to administrators/);

@@ -536,44 +536,12 @@ function loadActiveAudit() {
     document.getElementById('emissionFactor').value = energySettings.emissionFactor;
     renderHistoricalData(historicalData);
     renderAuditPhotos(auditPhotos);
-    renderAdminFacilityInventory();
     renderAdminCalculationResults();
     setFacilityReadOnly();
     updateFacilityLabels();
     calculateAll();
     updateAuditReportDisplay();
     initializeReportFacilitySelector();
-}
-
-function renderAdminFacilityInventory() {
-    const container = document.getElementById('adminFacilityInventory');
-    const body = document.getElementById('adminFacilityInventoryBody');
-    if (!container || !body) return;
-    const adminView = isAdministrator();
-    container.hidden = !adminView;
-    if (!adminView) return;
-
-    body.innerHTML = '';
-    if (!inventory.length) {
-        const row = document.createElement('tr');
-        const cell = document.createElement('td');
-        cell.colSpan = 5;
-        cell.className = 'empty-state';
-        cell.textContent = 'No equipment recorded for this facility.';
-        row.appendChild(cell);
-        body.appendChild(row);
-        return;
-    }
-    inventory.forEach(item => {
-        const row = document.createElement('tr');
-        [item.category || 'General', item.name, `${item.watts} W`, item.qty, `${item.hours} hrs`]
-            .forEach(value => {
-                const cell = document.createElement('td');
-                cell.textContent = value;
-                row.appendChild(cell);
-            });
-        body.appendChild(row);
-    });
 }
 
 function setFacilityReadOnly() {
