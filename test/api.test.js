@@ -57,7 +57,7 @@ test('serves the updated frontend, assets, and existing API bridge', async () =>
     assert.match(pageText, /id="mySubmissionPanel"/);
     assert.match(pageText, /Submitted details are read-only to administrators/);
     assert.match(pageText, /id="auditorRecommendationsPanel"/);
-    assert.match(pageText, /id="submitAuditForApprovalButton"/);
+    assert.match(pageText, /id="submitAuditForApprovalButton" class="btn-action btn-green-hover"/);
     assert.match(pageText, /To submit this audit for approval, add at least one equipment recommendation\./);
     assert.match(pageText, /id="auditDate" readonly aria-readonly="true"/);
     assert.match(pageText, /btn-action btn-green-hover" type="button" onclick="addEquipmentDetail\('actual'\)"/);

@@ -275,12 +275,9 @@ function renderAdminReviewQueue() {
         metadata.appendChild(facilityGroup);
         metadata.appendChild(createReviewInput('Hostel name / identifier', submission.hostelName, 'text', 'hostelName'));
         metadata.appendChild(createReviewInput('Location', submission.facilityInfo.facilityLocation, 'text', 'facilityLocation'));
-        metadata.appendChild(createReviewInput('Floor area (m²)', submission.facilityInfo.floorArea, 'number', 'floorArea'));
         const auditorNameField = createReviewInput('Auditor name', submission.facilityInfo.authorName || submission.auditorName, 'text', 'authorName');
         auditorNameField.querySelector('input').readOnly = true;
         metadata.appendChild(auditorNameField);
-        metadata.appendChild(createReviewInput('Building type', submission.facilityInfo.buildingType, 'text', 'buildingType'));
-
 
         metadata.appendChild(createReviewInput('Energy sources', submission.facilityInfo.energySources, 'text', 'energySources'));
         metadata.appendChild(createReviewInput('Audit date', submission.facilityInfo.auditDate, 'date', 'auditDate'));
@@ -290,7 +287,6 @@ function renderAdminReviewQueue() {
             'textarea',
             'historicalData'
         ));
-        metadata.appendChild(createReviewInput('Audit findings', submission.findings || '', 'textarea', 'findings'));
         metadata.appendChild(createReviewInput(
             'Energy-saving recommendations (one per line)',
             (submission.recommendations || []).join('\n'),
