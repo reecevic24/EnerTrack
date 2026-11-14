@@ -380,6 +380,18 @@ router.put('/audits/:auditId', requireAuditor, async (req, res, next) => {
     try {
         const auditId = uuidSchema.parse(req.params.auditId);
         await client.query('BEGIN');
+        const current = await client.query(
+            'SELECT status FROM audits WHERE id = $1 AND auditor_id = $2 FOR UPDATE',
+            [auditId, req.session.user.id]
+        );
+        if (!current.rowCount) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: 'Audit not found.' });
+        }
+        if (current.rows[0].status === 'approved') {
+            await client.query('ROLLBACK');
+            return res.status(409).json({ error: 'Facility already approved' });
+        }
         const audit = await saveAudit(client, req.session.user.id, auditId, req.body);
         await client.query('COMMIT');
         res.json({ audit });
@@ -396,10 +408,19 @@ router.delete('/audits/:auditId', requireAuditor, async (req, res, next) => {
     try {
         const auditId = uuidSchema.parse(req.params.auditId);
         const result = await pool.query(
-            'DELETE FROM audits WHERE id = $1 AND auditor_id = $2 RETURNING id',
+            "DELETE FROM audits WHERE id = $1 AND auditor_id = $2 AND status <> 'approved' RETURNING id",
             [auditId, req.session.user.id]
         );
-        if (!result.rowCount) return res.status(404).json({ error: 'Audit not found.' });
+        if (!result.rowCount) {
+            const existing = await pool.query(
+                'SELECT status FROM audits WHERE id = $1 AND auditor_id = $2',
+                [auditId, req.session.user.id]
+            );
+            if (existing.rowCount && existing.rows[0].status === 'approved') {
+                return res.status(409).json({ error: 'Facility already approved' });
+            }
+            return res.status(404).json({ error: 'Audit not found.' });
+        }
         res.sendStatus(204);
     } catch (error) {
         next(error);
@@ -418,6 +439,10 @@ router.post('/audits/:auditId/submit', requireAuditor, async (req, res, next) =>
         if (!audit.rowCount) {
             await client.query('ROLLBACK');
             return res.status(404).json({ error: 'Audit not found.' });
+        }
+        if (audit.rows[0].status === 'approved') {
+            await client.query('ROLLBACK');
+            return res.status(409).json({ error: 'Facility already approved' });
         }
         const equipment = await client.query('SELECT count(*)::int AS count FROM audit_equipment WHERE audit_id = $1', [auditId]);
         if (!equipment.rows[0].count) {

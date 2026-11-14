@@ -95,7 +95,18 @@ async function putAudits(attempt) {
     if (!currentUser) return;
     try {
         for (const record of audits) {
-            if (record.id || auditHasContent(record)) await persistAuditRecord(record);
+            if (record.status === 'approved') continue;
+            if (!record.id && !auditHasContent(record)) continue;
+            try {
+                await persistAuditRecord(record);
+            } catch (error) {
+                if (error.status === 409 && error.message === 'Facility already approved') {
+                    record.status = 'approved';
+                    alert(error.message);
+                    continue;
+                }
+                throw error;
+            }
         }
         await loadPersonalDashboard();
     } catch (error) {

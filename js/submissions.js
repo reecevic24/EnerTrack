@@ -48,17 +48,6 @@ function updateSubmissionStatus() {
     status.textContent = 'To submit this audit for approval, add at least one equipment recommendation.';
 }
 
-function auditHasUnsubmittedChanges(record, submission) {
-    const snapshot = submission.auditorSnapshot || {
-        facilityInfo: submission.facilityInfo,
-        inventory: submission.inventory
-    };
-    return JSON.stringify(record.facilityInfo) !== JSON.stringify(snapshot.facilityInfo) ||
-        JSON.stringify(record.inventory) !== JSON.stringify(snapshot.inventory) ||
-        JSON.stringify(record.historicalData || []) !== JSON.stringify(snapshot.historicalData || []) ||
-        JSON.stringify(record.photos || []) !== JSON.stringify(snapshot.photos || []);
-}
-
 function createAuditorSnapshot(record) {
     return {
         facilityInfo: { ...record.facilityInfo },
@@ -70,11 +59,29 @@ function createAuditorSnapshot(record) {
 
 function isAuditLockedAsApproved(record) {
     const submission = findSubmissionForAudit(record);
-    return submission?.status === 'approved' && !auditHasUnsubmittedChanges(record, submission);
+    return record?.status === 'approved' || submission?.status === 'approved';
 }
 
 function isAuditSubmittedForApproval(record) {
     return findSubmissionForAudit(record)?.status === 'pending';
+}
+
+async function ensureAuditNotApproved(record) {
+    if (isAuditLockedAsApproved(record)) {
+        alert('Facility already approved');
+        return false;
+    }
+    try {
+        await loadSharedSubmissions();
+    } catch (error) {
+        reportApiError(error);
+        return false;
+    }
+    if (isAuditLockedAsApproved(record)) {
+        alert('Facility already approved');
+        return false;
+    }
+    return true;
 }
 
 function findSubmissionForAudit(record) {
@@ -196,6 +203,7 @@ async function submitCurrentAudit() {
             selectHostelAudit();
         }
     }
+    if (!await ensureAuditNotApproved(getCurrentAudit(false))) return;
     if (!ensureAuditReady()) return;
 
     const enteredRecommendations = loadRecommendations

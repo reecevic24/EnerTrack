@@ -744,7 +744,7 @@ function saveUserData() {
     updateSubmissionStatus();
 }
 
-function addEquipment() {
+async function addEquipment() {
     if (isAdministrator()) {
         calculateAdminEquipment();
         return;
@@ -753,6 +753,7 @@ function addEquipment() {
         alert('Enter the hostel name before adding its equipment.');
         return;
     }
+    if (!await ensureAuditNotApproved(getCurrentAudit(false))) return;
     const category = document.getElementById('equipmentCategory').value;
     const name = document.getElementById('equipment').value.trim();
     const watts = parseFloat(document.getElementById('wattage').value);

@@ -162,23 +162,6 @@ test('keeps submitted recommendations available to reports after the entry field
     );
 });
 
-test('does not mark a submitted audit as changed when photo URLs are normalized locally', async () => {
-    const response = await fetch(`${baseUrl}/js/submissions.js`);
-    const context = {};
-    vm.runInNewContext(await response.text(), context);
-    const record = {
-        facilityInfo: { facilityLocation: 'Main Campus', auditDate: '2026-11-12' },
-        inventory: [{ category: 'Lighting', name: 'LED', watts: 30, qty: 4, hours: 8 }],
-        historicalData: [{ month: '2026-10', kwh: 100, cost: 1200 }],
-        photos: [{ id: 'photo-1', url: '/api/audits/photo-1', dataUrl: 'https://api.example/api/audits/photo-1' }]
-    };
-    const submission = { auditorSnapshot: context.createAuditorSnapshot(record) };
-
-    assert.equal(context.auditHasUnsubmittedChanges(record, submission), false);
-    record.photos[0].dataUrl = 'data:image/jpeg;base64,abc';
-    assert.equal(context.auditHasUnsubmittedChanges(record, submission), true);
-});
-
 test('prevents administrator accounts from entering or submitting audits', async () => {
     const response = await fetch(`${baseUrl}/js/submissions.js`);
     const alerts = [];
@@ -194,6 +177,36 @@ test('prevents administrator accounts from entering or submitting audits', async
 
     assert.equal(alerts.length, 2);
     assert.ok(alerts.every(message => /administrator accounts cannot/i.test(message)));
+});
+
+test('prevents adding equipment to or resubmitting an approved facility audit', async () => {
+    const [submissionResponse, auditResponse] = await Promise.all([
+        fetch(`${baseUrl}/js/submissions.js`),
+        fetch(`${baseUrl}/js/audits.js`)
+    ]);
+    const item = { id: 'existing-item', category: 'Lighting', name: 'LED', watts: 30, qty: 4, hours: 8 };
+    const record = { id: 'audit-1', key: 'Library', status: 'approved', inventory: [item] };
+    const alerts = [];
+    const context = {
+        currentUser: { role: 'auditor' },
+        selectedFacility: 'Library',
+        selectedHostelName: '',
+        audits: [record],
+        inventory: [item],
+        sharedSubmissions: [{ id: 'audit-1', auditKey: 'Library', status: 'approved' }],
+        isAdministrator: () => false,
+        alert: message => alerts.push(message)
+    };
+    vm.createContext(context);
+    vm.runInContext(await submissionResponse.text(), context);
+    vm.runInContext(await auditResponse.text(), context);
+
+    await context.addEquipment();
+    await context.submitCurrentAudit();
+
+    assert.equal(record.status, 'approved');
+    assert.equal(record.inventory.length, 1);
+    assert.deepEqual(alerts, ['Facility already approved', 'Facility already approved']);
 });
 
 test('allows administrators to open the Conservation page', async () => {
@@ -387,6 +400,39 @@ test('preserves each audit status and review metadata when background saves upda
     assert.doesNotMatch(auditRoutes, /CASE WHEN audits\.status = 'discarded' THEN 'draft' ELSE 'pending' END/);
     assert.doesNotMatch(auditRoutes, /reviewed_at = CASE WHEN \$5 IS NOT NULL THEN audits\.reviewed_at ELSE NULL END/);
     assert.doesNotMatch(auditRoutes, /reviewed_by = CASE WHEN \$5 IS NOT NULL THEN audits\.reviewed_by ELSE NULL END/);
+    assert.match(auditRoutes, /current\.rows\[0\]\.status === 'approved'[\s\S]*Facility already approved/);
+    assert.match(auditRoutes, /status <> 'approved' RETURNING id/);
+    assert.match(auditRoutes, /audit\.rows\[0\]\.status === 'approved'[\s\S]*Facility already approved/);
+});
+
+test('skips approved audits during background saves without blocking other facilities', async () => {
+    const response = await fetch(`${baseUrl}/js/audit-sync.js`);
+    const alreadyApproved = { id: 'approved-audit', status: 'approved' };
+    const newlyApproved = { id: 'newly-approved-audit', status: 'pending' };
+    const editable = { id: 'editable-audit', status: 'pending' };
+    const attempts = [];
+    const alerts = [];
+    const context = {
+        currentUser: { role: 'auditor' },
+        audits: [alreadyApproved, newlyApproved, editable],
+        alert: message => alerts.push(message),
+        loadPersonalDashboard: async () => {}
+    };
+    vm.runInContext(await response.text(), vm.createContext(context));
+    context.persistAuditRecord = async record => {
+        attempts.push(record.id);
+        if (record === newlyApproved) {
+            const error = new Error('Facility already approved');
+            error.status = 409;
+            throw error;
+        }
+    };
+
+    await context.putAudits(0);
+
+    assert.deepEqual(attempts, ['newly-approved-audit', 'editable-audit']);
+    assert.equal(newlyApproved.status, 'approved');
+    assert.deepEqual(alerts, ['Facility already approved']);
 });
 
 test('lets administrators select each auditor audit independently in the facility view', async () => {
