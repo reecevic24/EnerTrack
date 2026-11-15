@@ -31,6 +31,7 @@ function createReportContext() {
             }
         },
         facilitySelector: { value: '' },
+        printFacilitySelector: { value: '' },
         hostelName: { value: '' },
         hostelNameGroup: { style: {} },
         generateAuditReportButton: { disabled: false },
@@ -58,6 +59,7 @@ function createReportContext() {
         },
         selectedFacility: '',
         selectedHostelName: '',
+        ADD_HOSTEL_OPTION: '__add_hostel__',
         currentUser: null,
         facilityNames: ['Library', 'Hostels', 'Annex'],
         createDefaultEnergySettings() {
@@ -112,6 +114,7 @@ function createReportContext() {
             return totals;
         }
     };
+    context.isAdministrator = () => !!context.currentUser && context.currentUser.role === 'admin';
     vm.createContext(context);
     for (const file of ['js/audits.js', 'js/audit-evidence.js', 'js/audit-report.js']) {
         vm.runInContext(fs.readFileSync(path.join(repositoryRoot, file), 'utf8'), context, { filename: file });
@@ -223,9 +226,21 @@ test('admin report printing hides saved inventory and the approval button only f
     assert.doesNotMatch(styles, /body\.admin-print-report #adminEquipmentCalculator/);
 });
 
-test('administrator report selector lists every audit and available facility distinctly', () => {
+test('administrator report selector lists available audits and facilities distinctly', () => {
     const { context, nodes } = createReportContext();
     context.currentUser = { role: 'admin' };
+    context.audits.push({
+        id: 'draft-library-audit',
+        key: 'Library',
+        facilityId: 'Library',
+        status: 'draft',
+        auditorName: 'Draft Auditor',
+        inventory: [],
+        facilityInfo: {},
+        historicalData: [],
+        photos: [],
+        recommendations: []
+    });
     context.audits.push({
         id: 'second-library-audit',
         key: 'Library',
@@ -255,6 +270,7 @@ test('administrator report selector lists every audit and available facility dis
     assert.ok(values.includes('audit:library-audit'));
     assert.ok(values.includes('audit:second-library-audit'));
     assert.ok(values.includes('facility:Annex'));
+    assert.ok(!values.includes('audit:draft-library-audit'));
     assert.ok(labels.includes('Library — Auditor One'));
     assert.ok(labels.includes('Library — Auditor Three'));
     assert.ok(labels.includes('All facilities and audits'));
@@ -296,6 +312,7 @@ test('administrator can generate a report for the audit selected by its unique I
         totals: { kwh: 0, cost: 0, carbon: 0 }
     });
     context.saveAudits = () => {};
+    context.loadActiveAudit = () => {};
     context.updateAuditReportDisplay = record => {
         nodes.aiReportContent.textContent = record.report;
     };
@@ -306,6 +323,8 @@ test('administrator can generate a report for the audit selected by its unique I
     context.handleReportFacilitySelection();
     context.generateAuditReport();
 
+    assert.equal(nodes.facilitySelector.value, 'second-library-audit');
+    assert.equal(nodes.printFacilitySelector.value, 'second-library-audit');
     assert.match(nodes.aiReportContent.textContent, /Desk fan/);
     assert.match(nodes.aiReportContent.textContent, /Auditor Three/);
     assert.doesNotMatch(nodes.aiReportContent.textContent, /LED/);
@@ -327,4 +346,74 @@ test('selecting a named hostel report activates that hostel audit', () => {
     assert.equal(nodes.hostelName.value, 'Hostel A');
     assert.equal(nodes.hostelNameGroup.style.display, 'flex');
     assert.equal(activeAuditLoads, 1);
+});
+
+test('selecting an inventory facility synchronizes the comprehensive report facility', () => {
+    const { context, nodes } = createReportContext();
+    context.loadActiveAudit = () => {};
+    context.initializeReportFacilitySelector();
+    nodes.facilitySelector.value = 'Library';
+
+    context.handleFacilitySelection();
+
+    assert.equal(nodes.reportFacilitySelector.value, 'audit:library-audit');
+    assert.equal(nodes.printFacilitySelector.value, 'Library');
+});
+
+test('submit control stays visible, requires a recommendation, and is disabled for admins', () => {
+    const nodes = {
+        recommendationSubmitSection: { hidden: true },
+        submitAuditForApprovalButton: { disabled: false },
+        recommendationSubmitHint: { textContent: '' }
+    };
+    const context = {
+        document: { getElementById: id => nodes[id] || null },
+        currentUser: { role: 'auditor' },
+        loadRecommendations: []
+    };
+    context.isAdministrator = () => context.currentUser.role === 'admin';
+    vm.createContext(context);
+    vm.runInContext(
+        fs.readFileSync(path.join(repositoryRoot, 'js/recommendations.js'), 'utf8'),
+        context,
+        { filename: 'js/recommendations.js' }
+    );
+
+    context.updateRecommendationSubmitSection();
+    assert.equal(nodes.recommendationSubmitSection.hidden, false);
+    assert.equal(nodes.submitAuditForApprovalButton.disabled, true);
+
+    context.loadRecommendations = [{ text: 'Replace inefficient lighting.' }];
+    context.updateRecommendationSubmitSection();
+    assert.equal(nodes.submitAuditForApprovalButton.disabled, false);
+
+    context.currentUser = { role: 'admin' };
+    context.updateRecommendationSubmitSection();
+    assert.equal(nodes.submitAuditForApprovalButton.disabled, true);
+    assert.match(nodes.recommendationSubmitHint.textContent, /Administrators cannot submit audits/);
+});
+
+test('shared submission loading removes drafts for administrators as well', async () => {
+    const context = {
+        currentUser: { role: 'admin' },
+        isAdministrator: () => true,
+        API_BASE: '',
+        createEmptyFacilityInfo: () => ({}),
+        apiRequest: async () => ({
+            audits: [
+                { id: 'draft-audit', status: 'draft' },
+                { id: 'pending-audit', status: 'pending' }
+            ]
+        })
+    };
+    vm.createContext(context);
+    vm.runInContext(
+        fs.readFileSync(path.join(repositoryRoot, 'js/submissions.js'), 'utf8'),
+        context,
+        { filename: 'js/submissions.js' }
+    );
+
+    await context.loadSharedSubmissions();
+
+    assert.deepEqual(Array.from(context.sharedSubmissions, item => item.id), ['pending-audit']);
 });

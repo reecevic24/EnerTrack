@@ -291,7 +291,7 @@
                 <h4>📨 Auditor submission</h4>
                 <p id="submissionStatus" class="facility-hint">To submit this audit for approval, add at least one equipment recommendation.
                 </p>
-                <button class="btn-action" type="button" onclick="beginAuditRecommendations()">Add recommendations</button>
+                <button id="beginAuditRecommendationsButton" class="btn-action" type="button" onclick="beginAuditRecommendations()">Add recommendations</button>
             </section>
         </div>
 
@@ -413,7 +413,7 @@
 
                 <div id="auditorCommentsContainer" class="auditor-comments-grid">
                 </div>
-                <button class="btn-action btn-green-hover btn-add-load-box" type="button" onclick="addCustomLoadBox()">＋ Add equipment category</button>
+                <button id="addRecommendationCategoryButton" class="btn-action btn-green-hover btn-add-load-box" type="button" onclick="addCustomLoadBox()">＋ Add equipment category</button>
                 <div id="recommendationSubmitSection" class="recommendation-submit-section" hidden>
                     <p id="recommendationSubmitHint" class="facility-hint" aria-live="polite">Enter at least one equipment recommendation to submit this audit.</p>
                     <button id="submitAuditForApprovalButton" class="btn-action btn-green-hover" type="button" onclick="submitCurrentAudit()">Submit facility audit for approval</button>

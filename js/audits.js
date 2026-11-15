@@ -10,9 +10,9 @@ function reportAuditOptionValue(audit) {
 }
 
 function getAdminReportAudits() {
-    const reportAudits = audits.slice();
+    const reportAudits = audits.filter(audit => !audit.id || audit.status !== 'draft');
     facilityNames.forEach(name => {
-        const alreadyListed = reportAudits.some(audit =>
+        const alreadyListed = audits.some(audit =>
             String(audit.facilityId).toLocaleLowerCase() === name.toLocaleLowerCase()
         );
         if (!alreadyListed) {
@@ -235,7 +235,7 @@ function initializeFacilitySelector() {
     printSelector.appendChild(printPlaceholder);
     if (isAdministrator()) {
         const adminAudits = audits
-            .filter(audit => audit.id)
+            .filter(audit => audit.id && audit.status !== 'draft')
             .slice()
             .sort((a, b) => reportAuditLabel(a).localeCompare(reportAuditLabel(b), 'en', {
                 numeric: true,
@@ -320,16 +320,6 @@ function initializeFacilitySelector() {
 
 function handlePrintFacilitySelection() {
     const printSelection = document.getElementById('printFacilitySelector').value;
-    const hostelAudit = audits.find(audit => audit.key === printSelection && audit.facilityId === 'Hostels');
-    if (hostelAudit) {
-        selectedFacility = 'Hostels';
-        selectedHostelName = hostelAudit.hostelName;
-        document.getElementById('facilitySelector').value = 'Hostels';
-        document.getElementById('hostelName').value = selectedHostelName;
-        document.getElementById('hostelNameGroup').style.display = 'flex';
-        loadActiveAudit();
-        return;
-    }
     document.getElementById('facilitySelector').value = printSelection;
     handleFacilitySelection();
 }
@@ -357,9 +347,21 @@ function handleReportFacilitySelection() {
     }
     selectedFacility = record.facilityId;
     selectedHostelName = record.hostelName || '';
-    document.getElementById('facilitySelector').value = record.key;
+    if (isAdministrator()) {
+        selectedAdminAuditId = record.id ? String(record.id) : '';
+        const facilitySelector = document.getElementById('facilitySelector');
+        const printSelector = document.getElementById('printFacilitySelector');
+        if (facilitySelector) facilitySelector.value = selectedAdminAuditId;
+        if (printSelector) printSelector.value = selectedAdminAuditId;
+    } else {
+        const facilitySelector = document.getElementById('facilitySelector');
+        const printSelector = document.getElementById('printFacilitySelector');
+        if (facilitySelector) facilitySelector.value = record.key;
+        if (printSelector) printSelector.value = record.key;
+    }
     document.getElementById('hostelName').value = selectedHostelName;
     document.getElementById('hostelNameGroup').style.display = selectedFacility === 'Hostels' ? 'flex' : 'none';
+    loadActiveAudit();
     if (canSelectEmptyAudit) {
         const report = document.getElementById('aiReportContent');
         report.textContent = Array.isArray(record.inventory) && record.inventory.length
@@ -368,7 +370,6 @@ function handleReportFacilitySelection() {
         document.getElementById('reportPhotoGallery').innerHTML = '';
         return;
     }
-    loadActiveAudit();
 }
 
 function handleFacilitySelection() {
@@ -381,6 +382,7 @@ function handleFacilitySelection() {
         document.getElementById('hostelNameGroup').style.display = 'none';
         document.getElementById('hostelName').value = '';
         loadActiveAudit();
+        syncReportFacilityToCurrentAudit();
         updateSubmissionStatus();
         return;
     }
@@ -398,6 +400,7 @@ function handleFacilitySelection() {
         document.getElementById('hostelName').value = selectedHostelName;
         document.getElementById('hostelNameGroup').style.display = selectedFacility === 'Hostels' ? 'flex' : 'none';
         loadActiveAudit();
+        syncReportFacilityToCurrentAudit();
         return;
     }
     if (selectedValue === ADD_HOSTEL_OPTION) {
@@ -422,6 +425,17 @@ function handleFacilitySelection() {
     } else {
         loadActiveAudit();
     }
+    syncReportFacilityToCurrentAudit();
+}
+
+function syncReportFacilityToCurrentAudit() {
+    const selector = document.getElementById('reportFacilitySelector');
+    if (!selector) return;
+    const record = getCurrentAudit(false);
+    const selection = record ? reportAuditOptionValue(record) : '';
+    const matchingOption = Array.from(selector.options || []).some(option => option.value === selection);
+    selector.value = matchingOption ? selection : '';
+    selectedReportAuditValue = selector.value;
 }
 
 function startNewHostel() {
@@ -554,6 +568,7 @@ function setFacilityReadOnly() {
     page.querySelectorAll('input, select, textarea, button').forEach(control => {
         control.disabled = adminView &&
             control !== facilitySelector &&
+            control.id !== 'beginAuditRecommendationsButton' &&
             !(auditForm && auditForm.contains(control)) &&
             !(adminCalculator && adminCalculator.contains(control));
     });
@@ -562,7 +577,7 @@ function setFacilityReadOnly() {
     auditForm.hidden = false;
     document.getElementById('adminEquipmentCalculator').hidden = !adminView;
     document.getElementById('auditPhotoUpload').hidden = adminView;
-    document.getElementById('auditSubmissionPanel').hidden = adminView;
+    document.getElementById('auditSubmissionPanel').hidden = false;
     document.getElementById('historyActionHeader').hidden = adminView;
     const hostelSaveButton = document.querySelector('#hostelNameGroup button');
     if (hostelSaveButton) hostelSaveButton.hidden = adminView;
@@ -692,7 +707,7 @@ async function loadUserData() {
     });
 
     const populatedAudit = isAdministrator()
-        ? audits.find(audit => audit.id) || null
+        ? audits.find(audit => audit.id && audit.status !== 'draft') || null
         : audits.find(audit => audit.inventory.length > 0);
     selectedAdminAuditId = isAdministrator() && populatedAudit ? String(populatedAudit.id) : '';
     selectedFacility = populatedAudit ? populatedAudit.facilityId : 'Admin';

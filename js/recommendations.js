@@ -1,6 +1,8 @@
 function renderLoadRecommendationBoxes() {
     const container = document.getElementById('auditorCommentsContainer');
     container.innerHTML = '';
+    const addCategoryButton = document.getElementById('addRecommendationCategoryButton');
+    if (addCategoryButton) addCategoryButton.disabled = isAdministrator();
 
     loadRecommendations.forEach((rec, index) => {
         const box = document.createElement('div');
@@ -13,6 +15,7 @@ function renderLoadRecommendationBoxes() {
             deleteButton.type = 'button';
             deleteButton.className = 'btn-remove-custom-box';
             deleteButton.textContent = '✕ Delete Category';
+            deleteButton.disabled = isAdministrator();
             deleteButton.addEventListener('click', () => removeCustomLoadBox(rec.id));
             box.appendChild(deleteButton);
 
@@ -23,6 +26,7 @@ function renderLoadRecommendationBoxes() {
             categoryInput.className = 'load-type-input';
             categoryInput.value = rec.loadType;
             categoryInput.placeholder = 'Enter equipment category';
+            categoryInput.disabled = isAdministrator();
             categoryInput.addEventListener('input', () => updateLoadTypeName(rec.id, categoryInput.value));
             box.append(categoryLabel, categoryInput);
         } else {
@@ -37,6 +41,7 @@ function renderLoadRecommendationBoxes() {
         const recommendationInput = document.createElement('textarea');
         recommendationInput.placeholder = `Write recommendations for ${rec.loadType}...`;
         recommendationInput.value = rec.text || '';
+        recommendationInput.disabled = isAdministrator();
         recommendationInput.addEventListener('input', () => updateLoadText(rec.id, recommendationInput.value));
         const printText = document.createElement('div');
         printText.className = 'print-comment-text';
@@ -51,9 +56,20 @@ function renderLoadRecommendationBoxes() {
 function updateRecommendationSubmitSection() {
     const section = document.getElementById('recommendationSubmitSection');
     if (!section) return;
-    section.hidden = isAdministrator() || !loadRecommendations.some(recommendation =>
+    const hasRecommendation = loadRecommendations.some(recommendation =>
         recommendation.text && recommendation.text.trim()
     );
+    const submitButton = document.getElementById('submitAuditForApprovalButton');
+    const hint = document.getElementById('recommendationSubmitHint');
+    section.hidden = false;
+    if (submitButton) submitButton.disabled = isAdministrator() || !hasRecommendation;
+    if (hint) {
+        hint.textContent = isAdministrator()
+            ? 'Administrators cannot submit audits. Use Profiles & Reviews to review auditor submissions.'
+            : hasRecommendation
+                ? 'Ready to submit this audit for administrator approval.'
+                : 'Enter at least one equipment recommendation to submit this audit.';
+    }
 }
 
 function addCustomLoadBox() {

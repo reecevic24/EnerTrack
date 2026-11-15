@@ -3,7 +3,7 @@ async function loadSharedSubmissions() {
         const path = isAdministrator() ? '/api/admin/audits' : '/api/audits';
         const { audits: submissions } = await apiRequest(path);
         if (!Array.isArray(submissions)) throw new Error('Server audits must be an array.');
-        sharedSubmissions = submissions.filter(item => isAdministrator() || item.status !== 'draft').map(item => {
+        sharedSubmissions = submissions.filter(item => item.status !== 'draft').map(item => {
             const photos = Array.isArray(item.photos) ? item.photos.map(photo => ({
                 ...photo,
                 dataUrl: photo.url ? `${API_BASE}${photo.url}` : photo.dataUrl
@@ -45,7 +45,9 @@ function updateSubmissionStatus() {
     const status = document.getElementById('submissionStatus');
     if (!status || !currentUser) return;
     renderInventoryTable();
-    status.textContent = 'To submit this audit for approval, add at least one equipment recommendation.';
+    status.textContent = isAdministrator()
+        ? 'Administrators cannot submit audits. Use Profiles & Reviews to review auditor submissions.'
+        : 'To submit this audit for approval, add at least one equipment recommendation.';
 }
 
 function createAuditorSnapshot(record) {
@@ -170,19 +172,16 @@ function beginAuditRecommendations() {
         alert('Sign in before continuing with this audit.');
         return;
     }
-    if (isAdministrator()) {
-        alert('Administrator accounts cannot create or submit audits. Use Profiles & Reviews to supervise auditor submissions.');
-        return;
-    }
+    const adminView = isAdministrator();
     if (selectedFacility === 'Hostels') {
         const hostelInput = document.getElementById('hostelName');
         if (hostelInput && hostelInput.value.trim() && hostelInput.value.trim() !== selectedHostelName) {
             selectHostelAudit();
         }
     }
-    if (!ensureAuditReady()) return;
+    if (!adminView && !ensureAuditReady()) return;
 
-    saveFacilityDetails();
+    if (!adminView) saveFacilityDetails();
     switchPage('measures');
     const recommendationsPanel = document.getElementById('auditorRecommendationsPanel');
     if (recommendationsPanel) {

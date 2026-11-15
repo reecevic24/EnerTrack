@@ -164,21 +164,26 @@ test('keeps submitted recommendations available to reports after the entry field
     );
 });
 
-test('prevents administrator accounts from entering or submitting audits', async () => {
+test('allows administrators to view recommendations but prevents audit submission', async () => {
     const response = await fetch(`${baseUrl}/js/submissions.js`);
     const alerts = [];
+    const switchedPages = [];
     const context = {
         currentUser: { role: 'admin' },
+        selectedFacility: '',
         isAdministrator: () => true,
-        alert: message => alerts.push(message)
+        alert: message => alerts.push(message),
+        switchPage: page => switchedPages.push(page),
+        document: { getElementById: () => null }
     };
     vm.runInNewContext(await response.text(), context);
 
     context.beginAuditRecommendations();
     await context.submitCurrentAudit();
 
-    assert.equal(alerts.length, 2);
-    assert.ok(alerts.every(message => /administrator accounts cannot/i.test(message)));
+    assert.deepEqual(switchedPages, ['measures']);
+    assert.equal(alerts.length, 1);
+    assert.match(alerts[0], /administrator accounts cannot submit audits/i);
 });
 
 test('prevents adding equipment to or resubmitting an approved facility audit', async () => {
@@ -467,7 +472,8 @@ test('lets administrators select each auditor audit independently in the facilit
         facilityNames: ['Science Block'],
         audits: [
             { id: 'audit-1', key: 'Science Block', facilityId: 'Science Block', status: 'approved', auditorName: 'Auditor One', auditorEmail: 'one@example.com' },
-            { id: 'audit-2', key: 'Science Block', facilityId: 'Science Block', status: 'discarded', auditorName: 'Auditor Two', auditorEmail: 'two@example.com' }
+            { id: 'audit-2', key: 'Science Block', facilityId: 'Science Block', status: 'discarded', auditorName: 'Auditor Two', auditorEmail: 'two@example.com' },
+            { id: 'draft-audit', key: 'Science Block', facilityId: 'Science Block', status: 'draft', auditorName: 'Draft Auditor', auditorEmail: 'draft@example.com' }
         ],
         document,
         alert() {}
