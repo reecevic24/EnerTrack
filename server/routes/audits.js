@@ -55,7 +55,7 @@ const photoSchema = z.array(z.object({
     dataUrl: z.string().max(3_000_000).optional()
 })).max(20);
 const auditSchema = z.object({
-    facilityId: z.string().min(1).max(120),
+    facilityId: z.string().trim().min(1).max(120),
     hostelName: z.string().max(200).optional().default(''),
     facilityInfo: facilityInfoSchema,
     inventory: equipmentSchema,
@@ -79,6 +79,27 @@ function parseNullableNumber(value) {
     if (value === '' || value === null || value === undefined) return null;
     const number = Number(value);
     return Number.isFinite(number) ? number : null;
+}
+
+async function ensureFacility(client, name) {
+    const existing = await client.query(
+        'SELECT id FROM facilities WHERE lower(display_name) = lower($1)',
+        [name]
+    );
+    if (existing.rowCount) return existing.rows[0].id;
+
+    await client.query(
+        `INSERT INTO facilities (id, display_name, sort_order)
+         VALUES ($1, $1, 0)
+         ON CONFLICT (id) DO NOTHING`,
+        [name]
+    );
+    const created = await client.query(
+        'SELECT id FROM facilities WHERE lower(display_name) = lower($1)',
+        [name]
+    );
+    if (!created.rowCount) throw new Error('The facility group could not be registered.');
+    return created.rows[0].id;
 }
 
 function auditSummary(row) {
@@ -181,18 +202,13 @@ async function getAudit(client, auditId, includePrivate = true) {
 
 async function saveAudit(client, userId, auditId, data, status = null) {
     const parsed = auditSchema.parse(data);
+    parsed.facilityId = await ensureFacility(client, parsed.facilityId);
     if (parsed.facilityId === 'Hostels' && !parsed.hostelName.trim()) {
         const error = new Error('Enter the hostel name before saving this audit.');
         error.status = 400;
         throw error;
     }
     if (parsed.facilityId !== 'Hostels') parsed.hostelName = '';
-    const facility = await client.query('SELECT id FROM facilities WHERE id = $1', [parsed.facilityId]);
-    if (!facility.rowCount) {
-        const error = new Error('Select one of the configured EnerTrack facilities.');
-        error.status = 400;
-        throw error;
-    }
     const info = parsed.facilityInfo;
     const auditor = await client.query('SELECT full_name FROM users WHERE id = $1', [userId]);
     if (!auditor.rowCount) {
@@ -342,11 +358,12 @@ router.get('/audits', async (req, res, next) => {
 
 router.post('/audits', requireAuditor, async (req, res, next) => {
     const createSchema = z.object({
-        facilityId: z.string().min(1).max(120),
+        facilityId: z.string().trim().min(1).max(120),
         hostelName: z.string().max(200).optional().default('')
     });
     try {
         const input = createSchema.parse(req.body);
+        input.facilityId = await ensureFacility(pool, input.facilityId);
         if (input.facilityId === 'Hostels' && !input.hostelName.trim()) {
             return res.status(400).json({ error: 'Enter the hostel name before creating its audit.' });
         }

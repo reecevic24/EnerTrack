@@ -148,6 +148,113 @@ function updateUniversitySummary() {
     } else if (canvas) {
         showChartUnavailable(canvas);
     }
+    updateUniversityTrendChart();
+}
+
+function updateUniversityTrendChart() {
+    const selector = document.getElementById('universityTrendFacilitySelector');
+    const canvas = document.getElementById('universityTrendChart');
+    if (!selector || !canvas) return;
+
+    const approvedAudits = sharedSubmissions.filter(record => record.status === 'approved');
+    const facilityLabels = Array.from(new Set(approvedAudits.map(currentAuditLabel)))
+        .sort((a, b) => a.localeCompare(b, 'en', { numeric: true, sensitivity: 'base' }));
+    const previousSelection = selector.value;
+    selector.innerHTML = '';
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = facilityLabels.length ? 'Select a facility...' : 'No approved facility data yet';
+    selector.appendChild(placeholder);
+    facilityLabels.forEach(label => {
+        const option = document.createElement('option');
+        option.value = label;
+        option.textContent = label;
+        selector.appendChild(option);
+    });
+    selector.disabled = facilityLabels.length === 0;
+    selector.value = facilityLabels.includes(previousSelection)
+        ? previousSelection
+        : (facilityLabels[0] || '');
+
+    if (universityTrendChartInstance) {
+        universityTrendChartInstance.destroy();
+        universityTrendChartInstance = null;
+    }
+    if (!selector.value) {
+        canvas.style.display = 'none';
+        let emptyState = canvas.parentElement.querySelector('.chart-unavailable');
+        if (!emptyState) {
+            emptyState = document.createElement('p');
+            emptyState.className = 'chart-unavailable';
+            canvas.parentElement.appendChild(emptyState);
+        }
+        emptyState.textContent = 'No approved facility readings are available yet.';
+        return;
+    }
+    if (typeof Chart === 'undefined') {
+        showChartUnavailable(canvas);
+        return;
+    }
+    canvas.style.display = 'block';
+    const fallback = canvas.parentElement.querySelector('.chart-unavailable');
+    if (fallback) fallback.remove();
+
+    const selectedAudits = approvedAudits.filter(record => currentAuditLabel(record) === selector.value);
+    const historicalByMonth = new Map();
+    let currentKwh = 0;
+    selectedAudits.forEach(record => {
+        (Array.isArray(record.historicalData) ? record.historicalData : []).forEach(entry => {
+            const value = Number(entry.kwh);
+            if (!entry.month || !Number.isFinite(value)) return;
+            historicalByMonth.set(entry.month, (historicalByMonth.get(entry.month) || 0) + value);
+        });
+        const items = Array.isArray(record.inventory) ? record.inventory : [];
+        currentKwh += calculateInventoryTotals(items, 1, 0).monthlyKwh;
+    });
+
+    const months = Array.from(historicalByMonth.keys()).sort();
+    const labels = [...months, 'Current estimate'];
+    const historicalValues = months.map(month => historicalByMonth.get(month)).concat(null);
+    const currentValues = months.map(() => null).concat(currentKwh);
+    universityTrendChartInstance = new Chart(canvas.getContext('2d'), {
+        type: 'line',
+        data: {
+            labels,
+            datasets: [
+                {
+                    label: 'Historical meter usage (kWh)',
+                    data: historicalValues,
+                    borderColor: '#04e617',
+                    backgroundColor: 'rgba(4, 230, 23, 0.15)',
+                    pointRadius: 4,
+                    tension: 0.25
+                },
+                {
+                    label: 'Current equipment estimate (kWh/month)',
+                    data: currentValues,
+                    borderColor: '#ffbb00',
+                    backgroundColor: '#ffbb00',
+                    pointRadius: 6,
+                    showLine: false
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: false,
+            plugins: { legend: { labels: { color: '#cbd5e1' } } },
+            scales: {
+                x: { ticks: { color: '#a0aec0' }, grid: { display: false } },
+                y: {
+                    beginAtZero: true,
+                    title: { display: true, text: 'Energy (kWh)', color: '#a0aec0' },
+                    ticks: { color: '#a0aec0' },
+                    grid: { color: '#2d3748' }
+                }
+            }
+        }
+    });
 }
 
 async function loadPersonalDashboard() {

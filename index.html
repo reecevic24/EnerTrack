@@ -182,6 +182,17 @@
                 <h4>📊 Monthly Consumption by Facility <span style="color: #04e617;"></span></h4>
                 <div class="chart-box-single"><canvas id="universityChart"></canvas></div>
             </section>
+            <section class="card-panel">
+                <div class="action-row" style="justify-content: space-between;">
+                    <h4 style="margin: 0;">📈 Facility Usage Trend</h4>
+                    <div class="form-group">
+                        <label for="universityTrendFacilitySelector">Facility</label>
+                        <select id="universityTrendFacilitySelector" onchange="updateUniversityTrendChart()"></select>
+                    </div>
+                </div>
+                <p class="facility-hint">Compare approved historical meter readings with the current equipment estimate.</p>
+                <div class="chart-box-single"><canvas id="universityTrendChart"></canvas></div>
+            </section>
             <div style="display: flex; justify-content: flex-end;">
                 <button class="btn-action btn-neutral download-university-button" onclick="downloadUniversityBreakdown()">⬇️ Download full breakdown (PDF)</button>
             </div>
@@ -194,7 +205,13 @@
                 <h4>🏢 Facilities & Audit Details</h4>
                 <p id="administratorFacilityNotice" class="facility-hint" hidden>Administrator view: saved audit information is read-only. Use the calculator below for temporary estimates; those entries are not saved to the audit or inventory.</p>
                 <div class="facility-picker">
-                    <div class="form-group">
+                    <div class="form-group" id="auditorFacilityEntry">
+                        <label for="facilityNameInput">Facility(s)</label>
+                        <input type="text" id="facilityNameInput" maxlength="120" placeholder="Enter facility or group sharing a meter" onkeydown="if(event.key === 'Enter'){event.preventDefault(); startFacilityAudit();}">
+                        <button class="btn-action" type="button" onclick="startFacilityAudit()">Continue to audit details</button>
+                        <p class="facility-hint">Enter one facility or a group of facilities that share a meter.</p>
+                    </div>
+                    <div class="form-group" id="adminFacilitySelection" hidden>
                         <label for="facilitySelector">Facility</label>
                         <select id="facilitySelector" onchange="handleFacilitySelection()"></select>
                     </div>

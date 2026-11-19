@@ -94,8 +94,12 @@ function findSubmissionForAudit(record) {
 }
 
 function getAuditReadinessIssue() {
+    const facilityInput = document.getElementById('facilityNameInput') ||
+        document.getElementById('facilitySelector');
+    if (!selectedFacility || !facilityInput || !String(facilityInput.value || '').trim()) {
+        return { message: 'Enter the facility or facilities being audited.', element: facilityInput };
+    }
     const requiredFields = [
-        ['facilitySelector', 'Select a facility.'],
         ['facilityLocation', 'Enter the facility location.'],
         ['authorName', 'Auditor name is missing from this profile.'],
         ['energySources', 'Enter the facility energy sources.'],
@@ -143,6 +147,7 @@ function ensureAuditReady() {
 
 function clearAuditEntryFields() {
     [
+        'facilityNameInput',
         'facilityLocation',
         'authorName',
         'energySources',

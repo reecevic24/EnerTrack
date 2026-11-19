@@ -7,6 +7,7 @@ const AUDIT_REPORT_VERSION = 5;
 let sharedSubmissions = [];
 let barChartInstance = null;
 let universityChartInstance = null;
+let universityTrendChartInstance = null;
 let equipmentDetails = { actual: [], recommended: [] };
 let adminCalculationItems = [];
 let actualEquipmentChartInstance = null;

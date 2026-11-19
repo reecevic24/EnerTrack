@@ -144,6 +144,91 @@ test('report page provides a facility selector and a print-facility selector', (
     assert.match(html, /id="printHeaderUserLabel">Auditor/);
 });
 
+test('facility usage trend compares selected facility bills with its current estimate', () => {
+    const options = [];
+    const selector = {
+        _value: '',
+        options,
+        disabled: false,
+        set innerHTML(value) {
+            if (value === '') options.length = 0;
+        },
+        set value(value) { this._value = value; },
+        get value() { return this._value; },
+        appendChild(option) { options.push(option); }
+    };
+    const canvas = {
+        style: {},
+        parentElement: { querySelector: () => null },
+        getContext: () => ({})
+    };
+    let chartConfig;
+    class Chart {
+        constructor(_context, config) { chartConfig = config; }
+        destroy() {}
+    }
+    const context = {
+        document: {
+            getElementById(id) {
+                if (id === 'universityTrendFacilitySelector') return selector;
+                if (id === 'universityTrendChart') return canvas;
+                return null;
+            },
+            createElement: () => ({})
+        },
+        sharedSubmissions: [
+            {
+                status: 'approved',
+                facilityId: 'Library + Science Block',
+                historicalData: [
+                    { month: '2026-10', kwh: 125 },
+                    { month: '2026-09', kwh: 80 }
+                ],
+                inventory: [{ watts: 100, qty: 1, hours: 10 }]
+            },
+            {
+                status: 'approved',
+                facilityId: 'Library + Science Block',
+                historicalData: [{ month: '2026-09', kwh: 20 }],
+                inventory: [{ watts: 100, qty: 1, hours: 10 }]
+            },
+            {
+                status: 'pending',
+                facilityId: 'Unapproved facility',
+                historicalData: [],
+                inventory: []
+            }
+        ],
+        universityTrendChartInstance: null,
+        currentAuditLabel: record => record.facilityId,
+        calculateInventoryTotals(items) {
+            return {
+                monthlyKwh: items.reduce((sum, item) => sum + item.watts * item.qty * item.hours * 30 / 1000, 0)
+            };
+        },
+        Chart
+    };
+    vm.createContext(context);
+    vm.runInContext(fs.readFileSync(path.join(repositoryRoot, 'js/calculations.js'), 'utf8'), context);
+
+    context.updateUniversityTrendChart();
+
+    assert.deepEqual(options.map(option => option.value), ['', 'Library + Science Block']);
+    assert.equal(chartConfig.type, 'line');
+    assert.deepEqual(Array.from(chartConfig.data.labels), ['2026-09', '2026-10', 'Current estimate']);
+    assert.deepEqual(Array.from(chartConfig.data.datasets[0].data), [100, 125, null]);
+    assert.deepEqual(Array.from(chartConfig.data.datasets[1].data), [null, null, 60]);
+});
+
+test('audit entry asks for a facility group and includes the facility trend chart', () => {
+    const html = fs.readFileSync(path.join(repositoryRoot, 'index.html'), 'utf8');
+
+    assert.match(html, /<label for="facilityNameInput">Facility\(s\)<\/label>/);
+    assert.match(html, /id="facilityNameInput" maxlength="120"/);
+    assert.match(html, /id="universityTrendFacilitySelector"/);
+    assert.match(html, /id="universityTrendChart"/);
+});
+
 test('university breakdown print header shows the print date instead of the auditor name', async () => {
     const callbacks = {};
     const nodes = {

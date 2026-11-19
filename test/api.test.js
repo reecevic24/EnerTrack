@@ -93,7 +93,7 @@ test('serves the updated frontend, assets, and existing API bridge', async () =>
 test('requires complete facility details and equipment before auditor recommendations', async () => {
     const response = await fetch(`${baseUrl}/js/submissions.js`);
     const values = new Map([
-        ['facilitySelector', 'Science Block'],
+        ['facilityNameInput', 'Science Block'],
         ['facilityLocation', 'Main Campus'],
         ['authorName', 'Test Auditor'],
         ['energySources', 'Grid electricity'],
@@ -119,6 +119,38 @@ test('requires complete facility details and equipment before auditor recommenda
     assert.equal(context.getAuditReadinessIssue(), null);
     context.inventory = [];
     assert.equal(context.getAuditReadinessIssue().message, 'Add at least one complete equipment item before continuing.');
+});
+
+test('auditors can start an audit with a free-text facility group', async () => {
+    const response = await fetch(`${baseUrl}/js/audits.js`);
+    const facilityNameInput = {
+        value: 'Library and Science Block',
+        focus() {}
+    };
+    const context = {
+        document: { getElementById: id => id === 'facilityNameInput' ? facilityNameInput : null },
+        currentUser: { role: 'auditor' },
+        audits: [],
+        selectedFacility: '',
+        selectedHostelName: '',
+        selectedAdminAuditId: '',
+        createEmptyFacilityInfo: () => ({}),
+        createDefaultEnergySettings: () => ({ tariffRate: 12, emissionFactor: 0.05 }),
+        isAdministrator: () => false,
+        getCurrentAudit: () => null,
+        loadActiveAudit() {},
+        initializeFacilitySelector() {},
+        updateSubmissionStatus() {},
+        alert(message) { throw new Error(message); }
+    };
+    vm.runInNewContext(await response.text(), context);
+    context.loadActiveAudit = () => {};
+    context.initializeFacilitySelector = () => {};
+
+    context.startFacilityAudit();
+
+    assert.equal(context.selectedFacility, 'Library and Science Block');
+    assert.equal(context.selectedHostelName, '');
 });
 
 test('clears facility, equipment, and recommendation inputs after submission', async () => {
