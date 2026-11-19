@@ -16,6 +16,7 @@ let selectedFacility = 'Admin';
 let selectedHostelName = '';
 let selectedAdminAuditId = '';
 const ADD_HOSTEL_OPTION = '__add_hostel__';
+const ADD_FACILITY_OPTION = '__add_facility__';
 let facilityInfo = { facilityLocation: '', authorName: '' };
 let historicalData = [];
 let auditPhotos = [];

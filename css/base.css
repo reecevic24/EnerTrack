@@ -329,6 +329,10 @@ body {
     gap: 0.4rem;
 }
 
+.form-group[hidden] {
+    display: none;
+}
+
 label {
     font-size: 0.85rem;
     color: #cbd5e1;
@@ -495,6 +499,10 @@ input:focus, select:focus, textarea:focus {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 1.25rem;
+}
+
+.facility-picker[hidden] {
+    display: none;
 }
 
 .university-kpis {

@@ -94,10 +94,11 @@ function findSubmissionForAudit(record) {
 }
 
 function getAuditReadinessIssue() {
-    const facilityInput = document.getElementById('facilityNameInput') ||
+    const facilityInput = document.getElementById('auditorFacilitySelector') ||
         document.getElementById('facilitySelector');
-    if (!selectedFacility || !facilityInput || !String(facilityInput.value || '').trim()) {
-        return { message: 'Enter the facility or facilities being audited.', element: facilityInput };
+    if (!selectedFacility || !facilityInput ||
+        String(facilityInput.value || '').trim().toLocaleLowerCase() !== String(selectedFacility).toLocaleLowerCase()) {
+        return { message: 'Select the facility being audited.', element: facilityInput };
     }
     const requiredFields = [
         ['facilityLocation', 'Enter the facility location.'],
@@ -147,7 +148,7 @@ function ensureAuditReady() {
 
 function clearAuditEntryFields() {
     [
-        'facilityNameInput',
+        'newFacilityNameInput',
         'facilityLocation',
         'authorName',
         'energySources',

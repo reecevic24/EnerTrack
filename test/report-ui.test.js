@@ -31,6 +31,7 @@ function createReportContext() {
             }
         },
         facilitySelector: { value: '' },
+        auditorFacilitySelector: { value: '' },
         printFacilitySelector: { value: '' },
         hostelName: { value: '' },
         hostelNameGroup: { style: {} },
@@ -60,6 +61,7 @@ function createReportContext() {
         selectedFacility: '',
         selectedHostelName: '',
         ADD_HOSTEL_OPTION: '__add_hostel__',
+        ADD_FACILITY_OPTION: '__add_facility__',
         currentUser: null,
         facilityNames: ['Library', 'Hostels', 'Annex'],
         createDefaultEnergySettings() {
@@ -220,11 +222,12 @@ test('facility usage trend compares selected facility bills with its current est
     assert.deepEqual(Array.from(chartConfig.data.datasets[1].data), [null, null, 60]);
 });
 
-test('audit entry asks for a facility group and includes the facility trend chart', () => {
+test('audit entry offers facility selection and creation alongside the facility trend chart', () => {
     const html = fs.readFileSync(path.join(repositoryRoot, 'index.html'), 'utf8');
 
-    assert.match(html, /<label for="facilityNameInput">Facility\(s\)<\/label>/);
-    assert.match(html, /id="facilityNameInput" maxlength="120"/);
+    assert.match(html, /<label for="auditorFacilitySelector">Select facility<\/label>/);
+    assert.match(html, /id="newFacilityNameInput" maxlength="120"/);
+    assert.match(html, /onclick="saveNewFacility\(\)">Save facility and continue/);
     assert.match(html, /id="universityTrendFacilitySelector"/);
     assert.match(html, /id="universityTrendChart"/);
 });
@@ -427,7 +430,7 @@ test('selecting a named hostel report activates that hostel audit', () => {
 
     assert.equal(context.selectedFacility, 'Hostels');
     assert.equal(context.selectedHostelName, 'Hostel A');
-    assert.equal(nodes.facilitySelector.value, 'Hostels:hostel a');
+    assert.equal(nodes.auditorFacilitySelector.value, 'Hostels');
     assert.equal(nodes.hostelName.value, 'Hostel A');
     assert.equal(nodes.hostelNameGroup.style.display, 'flex');
     assert.equal(activeAuditLoads, 1);

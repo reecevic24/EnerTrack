@@ -91,7 +91,7 @@ async function ensureFacility(client, name) {
     await client.query(
         `INSERT INTO facilities (id, display_name, sort_order)
          VALUES ($1, $1, 0)
-         ON CONFLICT (id) DO NOTHING`,
+         ON CONFLICT DO NOTHING`,
         [name]
     );
     const created = await client.query(
@@ -336,9 +336,39 @@ function visibleAuditQuery(user, auditId) {
 
 router.get('/facilities', async (req, res, next) => {
     try {
-        const result = await pool.query('SELECT id, display_name AS name, sort_order FROM facilities ORDER BY sort_order');
+        const result = await pool.query(
+            'SELECT id, display_name AS name, sort_order FROM facilities ORDER BY sort_order, display_name'
+        );
         res.json({ facilities: result.rows });
     } catch (error) {
+        next(error);
+    }
+});
+
+router.post('/facilities', requireAuditor, async (req, res, next) => {
+    const facilitySchema = z.object({
+        name: z.string().trim().min(1).max(120)
+    });
+    try {
+        const { name } = facilitySchema.parse(req.body);
+        const existing = await pool.query(
+            'SELECT id FROM facilities WHERE lower(display_name) = lower($1)',
+            [name]
+        );
+        if (existing.rowCount) {
+            return res.status(409).json({ error: 'A facility with this name already exists.' });
+        }
+        const result = await pool.query(
+            `INSERT INTO facilities (id, display_name, sort_order)
+             VALUES ($1, $1, (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM facilities))
+             RETURNING id, display_name AS name, sort_order`,
+            [name]
+        );
+        res.status(201).json({ facility: result.rows[0] });
+    } catch (error) {
+        if (error.code === '23505') {
+            return res.status(409).json({ error: 'A facility with this name already exists.' });
+        }
         next(error);
     }
 });

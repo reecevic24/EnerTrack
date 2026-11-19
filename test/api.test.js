@@ -62,6 +62,9 @@ test('serves the updated frontend, assets, and existing API bridge', async () =>
     assert.match(pageText, /id="submitAuditForApprovalButton" class="btn-action btn-green-hover"/);
     assert.match(pageText, /To submit this audit for approval, add at least one equipment recommendation\./);
     assert.match(pageText, /id="auditDate" readonly aria-readonly="true"/);
+    assert.match(pageText, /id="auditorFacilitySelector"/);
+    assert.match(pageText, /id="newFacilityNameInput"/);
+    assert.doesNotMatch(pageText, /id="facilityNameInput"/);
     assert.match(pageText, /btn-action btn-green-hover" type="button" onclick="addEquipmentDetail\('actual'\)"/);
     assert.doesNotMatch(pageText, /id="floorArea"/);
     assert.match(pageText, /id="regPass"[^>]*minlength="6"/);
@@ -93,7 +96,7 @@ test('serves the updated frontend, assets, and existing API bridge', async () =>
 test('requires complete facility details and equipment before auditor recommendations', async () => {
     const response = await fetch(`${baseUrl}/js/submissions.js`);
     const values = new Map([
-        ['facilityNameInput', 'Science Block'],
+        ['auditorFacilitySelector', 'Science Block'],
         ['facilityLocation', 'Main Campus'],
         ['authorName', 'Test Auditor'],
         ['energySources', 'Grid electricity'],
@@ -121,19 +124,20 @@ test('requires complete facility details and equipment before auditor recommenda
     assert.equal(context.getAuditReadinessIssue().message, 'Add at least one complete equipment item before continuing.');
 });
 
-test('auditors can start an audit with a free-text facility group', async () => {
+test('auditors can start an audit from the facility dropdown', async () => {
     const response = await fetch(`${baseUrl}/js/audits.js`);
-    const facilityNameInput = {
+    const auditorFacilitySelector = {
         value: 'Library and Science Block',
         focus() {}
     };
     const context = {
-        document: { getElementById: id => id === 'facilityNameInput' ? facilityNameInput : null },
+        document: { getElementById: id => id === 'auditorFacilitySelector' ? auditorFacilitySelector : null },
         currentUser: { role: 'auditor' },
         audits: [],
         selectedFacility: '',
         selectedHostelName: '',
         selectedAdminAuditId: '',
+        ADD_FACILITY_OPTION: '__add_facility__',
         createEmptyFacilityInfo: () => ({}),
         createDefaultEnergySettings: () => ({ tariffRate: 12, emissionFactor: 0.05 }),
         isAdministrator: () => false,
@@ -151,6 +155,74 @@ test('auditors can start an audit with a free-text facility group', async () => 
 
     assert.equal(context.selectedFacility, 'Library and Science Block');
     assert.equal(context.selectedHostelName, '');
+});
+
+test('saving a new facility persists it in the catalogue and selects it for the audit', async () => {
+    const response = await fetch(`${baseUrl}/js/audits.js`);
+    const input = { value: 'Research Centre', focus() {} };
+    const selector = { value: '__add_facility__' };
+    const entry = { hidden: false };
+    const saveButton = { disabled: false };
+    const elements = new Map([
+        ['newFacilityNameInput', input],
+        ['newFacilityEntry', entry],
+        ['auditorFacilitySelector', selector]
+    ]);
+    const requests = [];
+    const context = {
+        document: {
+            getElementById: id => elements.get(id) || null,
+            querySelector: () => saveButton
+        },
+        currentUser: { role: 'auditor' },
+        audits: [],
+        facilityNames: ['Admin', 'Hostels'],
+        selectedFacility: '',
+        selectedHostelName: '',
+        selectedAdminAuditId: '',
+        ADD_FACILITY_OPTION: '__add_facility__',
+        createEmptyFacilityInfo: () => ({}),
+        createDefaultEnergySettings: () => ({ tariffRate: 12, emissionFactor: 0.05 }),
+        isAdministrator: () => false,
+        getCurrentAudit: () => null,
+        loadActiveAudit() {},
+        initializeFacilitySelector() {},
+        updateSubmissionStatus() {},
+        apiRequest: async (url, options) => {
+            requests.push({ url, options });
+            return { facility: { id: 'Research Centre', name: 'Research Centre' } };
+        },
+        alert(message) { throw new Error(message); },
+        console
+    };
+    vm.runInContext(await response.text(), vm.createContext(context));
+    context.getCurrentAudit = () => null;
+    context.loadActiveAudit = () => {};
+    context.initializeFacilitySelector = () => {};
+    context.updateSubmissionStatus = () => {};
+
+    await context.saveNewFacility();
+
+    assert.equal(requests.length, 1);
+    assert.equal(requests[0].url, '/api/facilities');
+    assert.equal(requests[0].options.method, 'POST');
+    assert.deepEqual(JSON.parse(requests[0].options.body), { name: 'Research Centre' });
+    assert.ok(context.facilityNames.includes('Research Centre'));
+    assert.equal(selector.value, 'Research Centre');
+    assert.equal(context.selectedFacility, 'Research Centre');
+    assert.equal(input.value, '');
+    assert.equal(entry.hidden, true);
+    assert.equal(saveButton.disabled, false);
+});
+
+test('facility creation requires an authenticated session', async () => {
+    const response = await fetch(`${baseUrl}/api/facilities`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: 'Research Centre' })
+    });
+
+    assert.equal(response.status, 401);
 });
 
 test('clears facility, equipment, and recommendation inputs after submission', async () => {
@@ -500,6 +572,7 @@ test('lets administrators select each auditor audit independently in the facilit
         selectedFacility: '',
         selectedHostelName: '',
         selectedAdminAuditId: 'audit-2',
+        ADD_FACILITY_OPTION: '__add_facility__',
         isAdministrator: () => true,
         facilityNames: ['Science Block'],
         audits: [

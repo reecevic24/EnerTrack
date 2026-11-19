@@ -206,10 +206,14 @@
                 <p id="administratorFacilityNotice" class="facility-hint" hidden>Administrator view: saved audit information is read-only. Use the calculator below for temporary estimates; those entries are not saved to the audit or inventory.</p>
                 <div class="facility-picker">
                     <div class="form-group" id="auditorFacilityEntry">
-                        <label for="facilityNameInput">Facility(s)</label>
-                        <input type="text" id="facilityNameInput" maxlength="120" placeholder="Enter facility or group sharing a meter" onkeydown="if(event.key === 'Enter'){event.preventDefault(); startFacilityAudit();}">
-                        <button class="btn-action" type="button" onclick="startFacilityAudit()">Continue to audit details</button>
-                        <p class="facility-hint">Enter one facility or a group of facilities that share a meter.</p>
+                        <label for="auditorFacilitySelector">Select facility</label>
+                        <select id="auditorFacilitySelector" onchange="handleAuditorFacilitySelection()"></select>
+                        <p class="facility-hint">Choose a saved facility or add a new one.</p>
+                        <div class="form-group" id="newFacilityEntry" hidden>
+                            <label for="newFacilityNameInput">New facility name</label>
+                            <input type="text" id="newFacilityNameInput" maxlength="120" placeholder="Enter facility name">
+                            <button class="btn-action" type="button" onclick="saveNewFacility()">Save facility and continue</button>
+                        </div>
                     </div>
                     <div class="form-group" id="adminFacilitySelection" hidden>
                         <label for="facilitySelector">Facility</label>
@@ -220,6 +224,8 @@
                         <input type="text" id="hostelName" placeholder="Enter the hostel being audited" onchange="selectHostelAudit()">
                         <button type="button" class="btn-action" onclick="selectHostelAudit()">Save hostel</button>
                     </div>
+                </div>
+                <div class="facility-picker" id="facilityAuditDetails" hidden>
                     <div class="form-group">
                         <label for="facilityLocation">Location</label>
                         <input type="text" id="facilityLocation" placeholder="e.g. Main Campus" onchange="saveFacilityDetails()" required>
