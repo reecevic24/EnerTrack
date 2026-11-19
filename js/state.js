@@ -25,19 +25,8 @@ let sessionExpiryNotified = false;
 const DEFAULT_TARIFF_RATE = 12;
 const DEFAULT_EMISSION_FACTOR = 0.05;
 
-// The catalogue is seeded in the database and loaded from /api/facilities; this
-// list is only the offline fallback used when that request fails.
-let facilityNames = [
-    'Admin',
-    'Hostels',
-    'Soweto 2',
-    'Soweto Kitchen',
-    'Ngeria Hostels',
-    'Tech Building',
-    'Main water supply',
-    'MTL',
-    'Annex'
-];
+// Facility options are loaded from /api/facilities after login.
+let facilityNames = [];
 
 const API_BASE = String(window.ENERTRACK_API_BASE_URL || '').replace(/\/+$/, '');
 

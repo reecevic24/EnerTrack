@@ -337,7 +337,10 @@ function visibleAuditQuery(user, auditId) {
 router.get('/facilities', async (req, res, next) => {
     try {
         const result = await pool.query(
-            'SELECT id, display_name AS name, sort_order FROM facilities ORDER BY sort_order, display_name'
+            `SELECT id, display_name AS name, sort_order
+             FROM facilities
+             WHERE is_user_created = true
+             ORDER BY sort_order, display_name`
         );
         res.json({ facilities: result.rows });
     } catch (error) {
@@ -352,15 +355,25 @@ router.post('/facilities', requireAuditor, async (req, res, next) => {
     try {
         const { name } = facilitySchema.parse(req.body);
         const existing = await pool.query(
-            'SELECT id FROM facilities WHERE lower(display_name) = lower($1)',
+            'SELECT id, is_user_created FROM facilities WHERE lower(display_name) = lower($1)',
             [name]
         );
         if (existing.rowCount) {
-            return res.status(409).json({ error: 'A facility with this name already exists.' });
+            if (existing.rows[0].is_user_created) {
+                return res.status(409).json({ error: 'A facility with this name already exists.' });
+            }
+            const promoted = await pool.query(
+                `UPDATE facilities
+                 SET is_user_created = true
+                 WHERE id = $1
+                 RETURNING id, display_name AS name, sort_order`,
+                [existing.rows[0].id]
+            );
+            return res.status(201).json({ facility: promoted.rows[0] });
         }
         const result = await pool.query(
-            `INSERT INTO facilities (id, display_name, sort_order)
-             VALUES ($1, $1, (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM facilities))
+            `INSERT INTO facilities (id, display_name, sort_order, is_user_created)
+             VALUES ($1, $1, (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM facilities), true)
              RETURNING id, display_name AS name, sort_order`,
             [name]
         );

@@ -200,7 +200,7 @@ function initializeAuditorFacilitySelector() {
 
     const selectedName = facilityNames.find(name =>
         String(name).toLocaleLowerCase() === String(selectedFacility).toLocaleLowerCase()
-    ) || selectedFacility;
+    ) || '';
     selector.innerHTML = '';
     const placeholder = document.createElement('option');
     placeholder.value = '';
@@ -208,10 +208,6 @@ function initializeAuditorFacilitySelector() {
     selector.appendChild(placeholder);
 
     const names = facilityNames.filter(name => name !== 'Admin');
-    if (selectedName && selectedName !== 'Admin' &&
-        !names.some(name => name.toLocaleLowerCase() === String(selectedName).toLocaleLowerCase())) {
-        names.push(selectedName);
-    }
     names.forEach(name => {
         const option = document.createElement('option');
         option.value = name;
@@ -473,6 +469,7 @@ async function saveNewFacility() {
         }
         input.value = '';
         document.getElementById('newFacilityEntry').hidden = true;
+        initializeAuditorFacilitySelector();
         document.getElementById('auditorFacilitySelector').value = facility.name;
         startFacilityAudit();
     } catch (error) {
@@ -724,12 +721,10 @@ async function loadFacilityCatalog() {
         const names = (Array.isArray(facilities) ? facilities : [])
             .map(facility => facility && facility.name)
             .filter(name => typeof name === 'string' && name.trim());
-        if (names.length) {
-            facilityNames.length = 0;
-            facilityNames.push(...names);
-        }
+        facilityNames.length = 0;
+        facilityNames.push(...names);
     } catch (error) {
-        console.error('Unable to load the facility catalogue; using the built-in list.', error);
+        console.error('Unable to load the facility catalogue; using the currently loaded list.', error);
     }
 }
 
@@ -784,7 +779,8 @@ async function loadUserData() {
 
     const populatedAudit = isAdministrator()
         ? audits.find(audit => audit.id && audit.status !== 'draft') || null
-        : audits.find(audit => audit.inventory.length > 0);
+        : audits.find(audit => audit.inventory.length > 0 &&
+            facilityNames.some(name => name.toLocaleLowerCase() === audit.facilityId.toLocaleLowerCase()));
     selectedAdminAuditId = isAdministrator() && populatedAudit ? String(populatedAudit.id) : '';
     selectedFacility = populatedAudit ? populatedAudit.facilityId : '';
     selectedHostelName = populatedAudit && populatedAudit.facilityId === 'Hostels' ? populatedAudit.hostelName : '';

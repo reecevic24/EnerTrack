@@ -160,7 +160,21 @@ test('auditors can start an audit from the facility dropdown', async () => {
 test('saving a new facility persists it in the catalogue and selects it for the audit', async () => {
     const response = await fetch(`${baseUrl}/js/audits.js`);
     const input = { value: 'Research Centre', focus() {} };
-    const selector = { value: '__add_facility__' };
+    const selector = {
+        options: [{ value: '' }, { value: '__add_facility__' }],
+        _value: '__add_facility__',
+        get value() { return this._value; },
+        set value(value) {
+            this._value = this.options.some(option => option.value === value) ? value : '';
+        },
+        set innerHTML(value) {
+            if (value === '') {
+                this.options = [];
+                this._value = '';
+            }
+        },
+        appendChild(option) { this.options.push(option); }
+    };
     const entry = { hidden: false };
     const saveButton = { disabled: false };
     const elements = new Map([
@@ -172,6 +186,7 @@ test('saving a new facility persists it in the catalogue and selects it for the 
     const context = {
         document: {
             getElementById: id => elements.get(id) || null,
+            createElement: () => ({ value: '', textContent: '' }),
             querySelector: () => saveButton
         },
         currentUser: { role: 'auditor' },
@@ -213,6 +228,47 @@ test('saving a new facility persists it in the catalogue and selects it for the 
     assert.equal(input.value, '');
     assert.equal(entry.hidden, true);
     assert.equal(saveButton.disabled, false);
+});
+
+test('facility catalogue uses an empty server response instead of retaining old options', async () => {
+    const response = await fetch(`${baseUrl}/js/audits.js`);
+    const context = {
+        facilityNames: ['Soweto 2'],
+        apiRequest: async () => ({ facilities: [] }),
+        console
+    };
+    vm.runInNewContext(await response.text(), context);
+
+    await context.loadFacilityCatalog();
+
+    assert.deepEqual(Array.from(context.facilityNames), []);
+});
+
+test('facility dropdown does not restore an old facility when the catalogue is empty', async () => {
+    const response = await fetch(`${baseUrl}/js/audits.js`);
+    const options = [];
+    const selector = {
+        set innerHTML(value) {
+            if (value === '') options.length = 0;
+        },
+        appendChild(option) { options.push(option); },
+        value: ''
+    };
+    const context = {
+        document: {
+            getElementById: id => id === 'auditorFacilitySelector' ? selector : null,
+            createElement: () => ({ value: '', textContent: '' })
+        },
+        facilityNames: [],
+        selectedFacility: 'Soweto 2',
+        ADD_FACILITY_OPTION: '__add_facility__'
+    };
+    vm.runInNewContext(await response.text(), context);
+
+    context.initializeAuditorFacilitySelector();
+
+    assert.deepEqual(options.map(option => option.value), ['', '__add_facility__']);
+    assert.equal(selector.value, '');
 });
 
 test('facility creation requires an authenticated session', async () => {
