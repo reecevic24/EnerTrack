@@ -378,6 +378,7 @@ async function deleteDiscardedSubmission(id, button) {
     try {
         await apiRequest(`/api/audits/${encodeURIComponent(id)}`, { method: 'DELETE' });
         sharedSubmissions = sharedSubmissions.filter(item => item.id !== id);
+        if (typeof loadFacilityCatalog === 'function') await loadFacilityCatalog();
         saveSharedSubmissions();
     } catch (error) {
         button.disabled = false;

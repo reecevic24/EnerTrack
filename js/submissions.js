@@ -245,6 +245,10 @@ async function submitCurrentAudit() {
         const { audit } = await apiRequest(`/api/audits/${encodeURIComponent(record.id)}/submit`, {
             method: 'POST'
         });
+        Object.assign(record, audit);
+        if (typeof markFacilitySubmittedInCatalog === 'function') {
+            markFacilitySubmittedInCatalog(audit.facilityId || record.facilityId, true);
+        }
         replaceSubmission({
             ...audit,
             auditKey: audit.key || audit.facilityId,

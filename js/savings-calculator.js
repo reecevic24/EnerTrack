@@ -1,5 +1,6 @@
 function handleAuditSettingChange() {
     if (isAdministrator()) return;
+    if (typeof isCurrentAuditLocked === 'function' && isCurrentAuditLocked()) return;
     const record = getCurrentAudit(false);
     if (record) {
         record.energySettings = readEnergySettingsFromForm();

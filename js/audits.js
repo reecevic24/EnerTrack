@@ -424,21 +424,298 @@ function handleFacilitySelection() {
     syncReportFacilityToCurrentAudit();
 }
 
+function isFacilitySubmittedInCatalog(name) {
+    if (!name || typeof facilityCatalog === 'undefined' || !Array.isArray(facilityCatalog)) return false;
+    const match = facilityCatalog.find(item =>
+        String(item.name || '').toLocaleLowerCase() === String(name).toLocaleLowerCase()
+    );
+    return !!(match && match.isSubmitted);
+}
+
+function markFacilitySubmittedInCatalog(name, isSubmitted = true) {
+    if (!name || typeof facilityCatalog === 'undefined' || !Array.isArray(facilityCatalog)) return;
+    const match = facilityCatalog.find(item =>
+        String(item.name || '').toLocaleLowerCase() === String(name).toLocaleLowerCase()
+    );
+    if (match) match.isSubmitted = Boolean(isSubmitted);
+}
+
+function isSelectedFacilityCatalogLocked(facilityName = selectedFacility) {
+    if (!facilityName) return false;
+    if (isFacilitySubmittedInCatalog(facilityName)) return true;
+    const lower = String(facilityName).toLocaleLowerCase();
+    if (Array.isArray(audits) && audits.some(audit =>
+        String(audit.facilityId || '').toLocaleLowerCase() === lower &&
+        audit.status && audit.status !== 'draft'
+    )) {
+        return true;
+    }
+    if (typeof sharedSubmissions !== 'undefined' && Array.isArray(sharedSubmissions) && sharedSubmissions.some(item =>
+        String(item.facilityId || '').toLocaleLowerCase() === lower &&
+        item.status && item.status !== 'draft'
+    )) {
+        return true;
+    }
+    return false;
+}
+
+function isCurrentAuditLocked(record = getCurrentAudit(false)) {
+    if (!record && selectedFacility && selectedFacility !== 'Hostels') {
+        return isSelectedFacilityCatalogLocked(selectedFacility);
+    }
+    if (!record) return false;
+    if (record.status && record.status !== 'draft') return true;
+    if (typeof isAuditSubmittedForApproval === 'function' && isAuditSubmittedForApproval(record)) return true;
+    if (typeof isAuditLockedAsApproved === 'function' && isAuditLockedAsApproved(record)) return true;
+    if (record.facilityId && record.facilityId !== 'Hostels' && isFacilitySubmittedInCatalog(record.facilityId)) {
+        return true;
+    }
+    return false;
+}
+
+function resetTransientFacilityEntryInputs() {
+    if (typeof document === 'undefined' || typeof document.getElementById !== 'function') return;
+    const auditForm = document.getElementById('auditForm');
+    if (auditForm && typeof auditForm.reset === 'function') auditForm.reset();
+    ['historyMonth', 'historyKwh', 'historyCost', 'auditPhotos'].forEach(id => {
+        const element = document.getElementById(id);
+        if (element) element.value = '';
+    });
+}
+
+function flushActiveAuditToRecord(record) {
+    if (!record || isCurrentAuditLocked(record)) return;
+    record.inventory = typeof inventory !== 'undefined' ? inventory : (record.inventory || []);
+    if (typeof facilityInfo !== 'undefined') record.facilityInfo = { ...facilityInfo };
+    if (typeof historicalData !== 'undefined') record.historicalData = historicalData;
+    if (typeof auditPhotos !== 'undefined') record.photos = auditPhotos;
+    if (typeof readEnergySettingsFromForm === 'function') {
+        record.energySettings = readEnergySettingsFromForm();
+    }
+    if (typeof saveAudits === 'function') saveAudits();
+}
+
 function handleAuditorFacilitySelection() {
     if (isAdministrator()) return;
     const selector = document.getElementById('auditorFacilitySelector');
     const newFacilityEntry = document.getElementById('newFacilityEntry');
     const newFacilityNameInput = document.getElementById('newFacilityNameInput');
-    const details = document.getElementById('facilityAuditDetails');
-    if (selector.value === ADD_FACILITY_OPTION) {
-        newFacilityEntry.hidden = false;
-        details.hidden = true;
-        newFacilityNameInput.focus();
+    if (selector && selector.value === ADD_FACILITY_OPTION) {
+        flushActiveAuditToRecord(getCurrentAudit(false));
+        cancelEditFacility();
+        selectedFacility = '';
+        selectedHostelName = '';
+        selectedAdminAuditId = '';
+        resetTransientFacilityEntryInputs();
+        if (typeof loadActiveAudit === 'function') loadActiveAudit();
+        if (typeof initializeFacilitySelector === 'function') initializeFacilitySelector();
+        if (typeof syncReportFacilityToCurrentAudit === 'function') syncReportFacilityToCurrentAudit();
+        if (typeof updateSubmissionStatus === 'function') updateSubmissionStatus();
+        if (newFacilityEntry) newFacilityEntry.hidden = false;
+        if (newFacilityNameInput) newFacilityNameInput.focus();
         return;
     }
-    newFacilityEntry.hidden = true;
-    newFacilityNameInput.value = '';
+    if (newFacilityEntry) newFacilityEntry.hidden = true;
+    if (newFacilityNameInput) newFacilityNameInput.value = '';
+    cancelEditFacility();
     startFacilityAudit();
+}
+
+function startEditFacility() {
+    if (isAdministrator()) return;
+    if (!selectedFacility) {
+        alert('Select a facility before editing.');
+        return;
+    }
+    if (isSelectedFacilityCatalogLocked(selectedFacility)) {
+        alert('Submitted facilities cannot be edited.');
+        setFacilityReadOnly();
+        return;
+    }
+    const newEntry = document.getElementById('newFacilityEntry');
+    if (newEntry) newEntry.hidden = true;
+    const editEntry = document.getElementById('editFacilityEntry');
+    const editInput = document.getElementById('editFacilityNameInput');
+    if (editEntry && editInput) {
+        editInput.value = selectedFacility;
+        editEntry.hidden = false;
+        editInput.focus();
+    }
+}
+
+function cancelEditFacility() {
+    if (typeof document === 'undefined' || typeof document.getElementById !== 'function') return;
+    const editEntry = document.getElementById('editFacilityEntry');
+    const editInput = document.getElementById('editFacilityNameInput');
+    if (editInput) editInput.value = '';
+    if (editEntry) editEntry.hidden = true;
+}
+
+async function saveEditedFacility() {
+    if (isAdministrator()) return;
+    const targetFacility = selectedFacility;
+    if (!targetFacility) {
+        alert('Select a facility before editing.');
+        return;
+    }
+    if (isSelectedFacilityCatalogLocked(targetFacility)) {
+        alert('Submitted facilities cannot be edited.');
+        cancelEditFacility();
+        setFacilityReadOnly();
+        return;
+    }
+    const input = document.getElementById('editFacilityNameInput');
+    const updatedName = input ? input.value.trim() : '';
+    if (!updatedName) {
+        alert('Enter a facility name.');
+        if (input && typeof input.focus === 'function') input.focus();
+        return;
+    }
+    if (updatedName === targetFacility) {
+        cancelEditFacility();
+        return;
+    }
+    if (updatedName.toLocaleLowerCase() !== targetFacility.toLocaleLowerCase() &&
+        typeof facilityNames !== 'undefined' && Array.isArray(facilityNames) &&
+        facilityNames.some(existing => existing.toLocaleLowerCase() === updatedName.toLocaleLowerCase())) {
+        alert('A facility with this name already exists.');
+        if (input && typeof input.focus === 'function') input.focus();
+        return;
+    }
+
+    const saveButton = document.getElementById('saveEditedFacilityButton');
+    const cancelButton = document.getElementById('cancelEditFacilityButton');
+    if (saveButton) saveButton.disabled = true;
+    if (cancelButton) cancelButton.disabled = true;
+    try {
+        if (typeof auditSaveTimer !== 'undefined') clearTimeout(auditSaveTimer);
+        const response = await apiRequest(`/api/facilities/${encodeURIComponent(targetFacility)}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ name: updatedName })
+        });
+        const facility = response && response.facility;
+        if (!facility || typeof facility.name !== 'string' || !facility.name.trim()) {
+            throw new Error('The updated facility was not returned by the server.');
+        }
+        const savedName = facility.name;
+        if (typeof facilityNames !== 'undefined' && Array.isArray(facilityNames)) {
+            const nameIndex = facilityNames.findIndex(existing =>
+                existing.toLocaleLowerCase() === targetFacility.toLocaleLowerCase()
+            );
+            if (nameIndex >= 0) facilityNames[nameIndex] = savedName;
+            else facilityNames.push(savedName);
+        }
+        if (typeof facilityCatalog !== 'undefined' && Array.isArray(facilityCatalog)) {
+            const catalogIndex = facilityCatalog.findIndex(existing =>
+                String(existing.name || '').toLocaleLowerCase() === targetFacility.toLocaleLowerCase()
+            );
+            const entry = {
+                id: facility.id || savedName,
+                name: savedName,
+                sort_order: facility.sort_order ?? 0,
+                isSubmitted: Boolean(facility.isSubmitted)
+            };
+            if (catalogIndex >= 0) facilityCatalog[catalogIndex] = entry;
+            else facilityCatalog.push(entry);
+        }
+        if (Array.isArray(audits)) {
+            audits.forEach(audit => {
+                if (String(audit.facilityId || '').toLocaleLowerCase() === targetFacility.toLocaleLowerCase()) {
+                    audit.facilityId = savedName;
+                    audit.key = savedName === 'Hostels' && audit.hostelName
+                        ? `Hostels:${audit.hostelName.trim().toLocaleLowerCase()}`
+                        : savedName;
+                    audit.report = '';
+                    audit.reportGeneratedAt = '';
+                }
+            });
+        }
+
+        selectedFacility = savedName;
+        cancelEditFacility();
+        initializeAuditorFacilitySelector();
+        const selector = document.getElementById('auditorFacilitySelector');
+        if (selector) selector.value = savedName;
+        if (typeof initializeFacilitySelector === 'function') initializeFacilitySelector();
+        if (typeof loadActiveAudit === 'function') loadActiveAudit();
+        if (typeof syncReportFacilityToCurrentAudit === 'function') syncReportFacilityToCurrentAudit();
+        if (typeof updateSubmissionStatus === 'function') updateSubmissionStatus();
+        if (typeof saveAudits === 'function') saveAudits();
+    } catch (error) {
+        console.error('Unable to update the facility.', error);
+        alert(error.message || 'Unable to update the facility. Please try again.');
+    } finally {
+        if (saveButton) saveButton.disabled = false;
+        if (cancelButton) cancelButton.disabled = false;
+    }
+}
+
+async function deleteSelectedFacility() {
+    if (isAdministrator()) return;
+    const targetFacility = selectedFacility;
+    if (!targetFacility) {
+        alert('Select a facility before deleting.');
+        return;
+    }
+    if (isSelectedFacilityCatalogLocked(targetFacility)) {
+        alert('Submitted facilities cannot be deleted.');
+        setFacilityReadOnly();
+        return;
+    }
+    if (typeof confirm === 'function' &&
+        !confirm(`Delete facility "${targetFacility}" and any unsubmitted draft data for it?`)) {
+        return;
+    }
+
+    const deleteButton = document.getElementById('deleteFacilityButton');
+    const editButton = document.getElementById('editFacilityButton');
+    if (deleteButton) deleteButton.disabled = true;
+    if (editButton) editButton.disabled = true;
+    try {
+        if (typeof auditSaveTimer !== 'undefined') clearTimeout(auditSaveTimer);
+        await apiRequest(`/api/facilities/${encodeURIComponent(targetFacility)}`, {
+            method: 'DELETE'
+        });
+
+        if (typeof facilityNames !== 'undefined' && Array.isArray(facilityNames)) {
+            for (let index = facilityNames.length - 1; index >= 0; index -= 1) {
+                if (facilityNames[index].toLocaleLowerCase() === targetFacility.toLocaleLowerCase()) {
+                    facilityNames.splice(index, 1);
+                }
+            }
+        }
+        if (typeof facilityCatalog !== 'undefined' && Array.isArray(facilityCatalog)) {
+            for (let index = facilityCatalog.length - 1; index >= 0; index -= 1) {
+                if (String(facilityCatalog[index].name || '').toLocaleLowerCase() === targetFacility.toLocaleLowerCase()) {
+                    facilityCatalog.splice(index, 1);
+                }
+            }
+        }
+        if (Array.isArray(audits)) {
+            audits = audits.filter(audit =>
+                String(audit.facilityId || '').toLocaleLowerCase() !== targetFacility.toLocaleLowerCase() ||
+                (audit.status && audit.status !== 'draft')
+            );
+        }
+
+        selectedFacility = '';
+        selectedHostelName = '';
+        selectedAdminAuditId = '';
+        cancelEditFacility();
+        resetTransientFacilityEntryInputs();
+        initializeAuditorFacilitySelector();
+        const selector = document.getElementById('auditorFacilitySelector');
+        if (selector) selector.value = '';
+        if (typeof initializeFacilitySelector === 'function') initializeFacilitySelector();
+        if (typeof loadActiveAudit === 'function') loadActiveAudit();
+        if (typeof syncReportFacilityToCurrentAudit === 'function') syncReportFacilityToCurrentAudit();
+        if (typeof updateSubmissionStatus === 'function') updateSubmissionStatus();
+        if (typeof loadPersonalDashboard === 'function') await loadPersonalDashboard();
+    } catch (error) {
+        console.error('Unable to delete the facility.', error);
+        alert(error.message || 'Unable to delete the facility. Please try again.');
+        if (typeof setFacilityReadOnly === 'function') setFacilityReadOnly();
+    }
 }
 
 async function saveNewFacility() {
@@ -467,8 +744,20 @@ async function saveNewFacility() {
         )) {
             facilityNames.push(facility.name);
         }
+        if (typeof facilityCatalog !== 'undefined' && Array.isArray(facilityCatalog) &&
+            !facilityCatalog.some(existing =>
+                String(existing.name || '').toLocaleLowerCase() === facility.name.toLocaleLowerCase()
+            )) {
+            facilityCatalog.push({
+                id: facility.id || facility.name,
+                name: facility.name,
+                sort_order: facility.sort_order ?? 0,
+                isSubmitted: Boolean(facility.isSubmitted)
+            });
+        }
         input.value = '';
         document.getElementById('newFacilityEntry').hidden = true;
+        cancelEditFacility();
         initializeAuditorFacilitySelector();
         document.getElementById('auditorFacilitySelector').value = facility.name;
         startFacilityAudit();
@@ -489,14 +778,9 @@ function startFacilityAudit(auditKey = '') {
         return;
     }
 
-    const previousRecord = getCurrentAudit(false);
-    if (previousRecord) {
-        previousRecord.inventory = inventory;
-        previousRecord.facilityInfo = { ...facilityInfo };
-        previousRecord.historicalData = historicalData;
-        previousRecord.photos = auditPhotos;
-        saveAudits();
-    }
+    flushActiveAuditToRecord(getCurrentAudit(false));
+    cancelEditFacility();
+    resetTransientFacilityEntryInputs();
 
     const selectedAudit = auditKey ? audits.find(audit => audit.key === auditKey) : null;
     const existing = selectedAudit || audits.find(audit =>
@@ -509,10 +793,12 @@ function startFacilityAudit(auditKey = '') {
     getCurrentAudit();
     loadActiveAudit();
     initializeFacilitySelector();
+    if (typeof syncReportFacilityToCurrentAudit === 'function') syncReportFacilityToCurrentAudit();
     updateSubmissionStatus();
 }
 
 function syncReportFacilityToCurrentAudit() {
+    if (typeof document === 'undefined' || typeof document.getElementById !== 'function') return;
     const selector = document.getElementById('reportFacilitySelector');
     if (!selector) return;
     const record = getCurrentAudit(false);
@@ -545,6 +831,11 @@ function selectHostelAudit() {
     if (isAdministrator()) return;
     const input = document.getElementById('hostelName');
     const previousHostelName = selectedHostelName;
+    if (isCurrentAuditLocked()) {
+        alert('Submitted or approved facility audits cannot be modified.');
+        input.value = previousHostelName;
+        return;
+    }
     const correctedHostelName = normalizeHostelName(input.value);
     if (!correctedHostelName) {
         input.value = previousHostelName;
@@ -566,6 +857,8 @@ function selectHostelAudit() {
             input.value = selectedHostelName;
             initializeFacilitySelector();
             loadActiveAudit();
+            if (typeof syncReportFacilityToCurrentAudit === 'function') syncReportFacilityToCurrentAudit();
+            if (typeof updateSubmissionStatus === 'function') updateSubmissionStatus();
             return;
         }
         alert('A hostel with that name already exists. Select it from the facility list instead.');
@@ -589,10 +882,13 @@ function selectHostelAudit() {
     getCurrentAudit();
     initializeFacilitySelector();
     loadActiveAudit();
+    if (typeof syncReportFacilityToCurrentAudit === 'function') syncReportFacilityToCurrentAudit();
+    if (typeof updateSubmissionStatus === 'function') updateSubmissionStatus();
 }
 
 function saveFacilityDetails() {
     if (isAdministrator()) return;
+    if (!selectedFacility || isCurrentAuditLocked()) return;
     facilityInfo.facilityLocation = document.getElementById('facilityLocation').value.trim();
     if (currentUser && !isAdministrator()) facilityInfo.authorName = currentUser.name;
     facilityInfo.energySources = document.getElementById('energySources').value.trim();
@@ -647,30 +943,88 @@ function setFacilityReadOnly() {
     const page = document.getElementById('pageFacilities');
     if (!page) return;
     const facilitySelector = document.getElementById('facilitySelector');
+    const auditorSelector = document.getElementById('auditorFacilitySelector');
+    const newEntry = document.getElementById('newFacilityEntry');
+    const editEntry = document.getElementById('editFacilityEntry');
+    const manageActions = document.getElementById('facilityManageActions');
+    const editFacilityButton = document.getElementById('editFacilityButton');
+    const deleteFacilityButton = document.getElementById('deleteFacilityButton');
+    const lockHint = document.getElementById('facilityLockHint');
+    const isAdding = !adminView && !!(auditorSelector && auditorSelector.value === ADD_FACILITY_OPTION);
+    const hasFacility = !adminView && Boolean(selectedFacility) && !isAdding;
+    const activeRecord = hasFacility ? getCurrentAudit(false) : null;
+    const catalogLocked = hasFacility && isSelectedFacilityCatalogLocked(selectedFacility);
+    const auditLocked = hasFacility && isCurrentAuditLocked(activeRecord);
+    const disableAuditorEntry = !adminView && (!hasFacility || auditLocked);
+
     document.getElementById('auditorFacilityEntry').hidden = adminView;
     document.getElementById('adminFacilitySelection').hidden = !adminView;
     document.getElementById('facilityAuditDetails').hidden = adminView
         ? !selectedAdminAuditId
-        : !selectedFacility ||
-            document.getElementById('auditorFacilitySelector').value === ADD_FACILITY_OPTION;
+        : !hasFacility;
+
+    if (adminView) {
+        if (manageActions) manageActions.hidden = true;
+        if (newEntry) newEntry.hidden = true;
+        if (editEntry) editEntry.hidden = true;
+        if (lockHint) lockHint.hidden = true;
+    } else {
+        if (manageActions) manageActions.hidden = !hasFacility;
+        if (editFacilityButton) editFacilityButton.disabled = catalogLocked;
+        if (deleteFacilityButton) deleteFacilityButton.disabled = catalogLocked;
+        if (lockHint) {
+            if (isAdding) {
+                lockHint.hidden = true;
+                lockHint.textContent = '';
+            } else if (!hasFacility) {
+                lockHint.hidden = false;
+                lockHint.textContent = 'Select a saved facility or add a new one to begin.';
+            } else if (catalogLocked || auditLocked) {
+                lockHint.hidden = false;
+                lockHint.textContent = activeRecord && activeRecord.status === 'approved'
+                    ? 'Approved — this facility audit is locked and cannot be edited or deleted.'
+                    : 'Submitted for approval — this facility is locked and cannot be edited or deleted.';
+            } else {
+                lockHint.hidden = false;
+                lockHint.textContent = 'Not submitted yet — you can edit or delete this facility before submission.';
+            }
+        }
+        if (catalogLocked || !hasFacility) cancelEditFacility();
+    }
+
     const auditForm = document.getElementById('auditForm');
     const adminCalculator = document.getElementById('adminEquipmentCalculator');
     page.querySelectorAll('input, select, textarea, button').forEach(control => {
-        control.disabled = adminView &&
-            control !== facilitySelector &&
-            control.id !== 'beginAuditRecommendationsButton' &&
-            !(auditForm && auditForm.contains(control)) &&
-            !(adminCalculator && adminCalculator.contains(control));
+        if (adminView) {
+            control.disabled =
+                control !== facilitySelector &&
+                control.id !== 'beginAuditRecommendationsButton' &&
+                !(auditForm && auditForm.contains(control)) &&
+                !(adminCalculator && adminCalculator.contains(control));
+            return;
+        }
+        const isSelectorOrManageControl =
+            control === auditorSelector ||
+            control === editFacilityButton ||
+            control === deleteFacilityButton ||
+            (newEntry && newEntry.contains(control)) ||
+            (editEntry && editEntry.contains(control));
+        if (isSelectorOrManageControl) return;
+        control.disabled = disableAuditorEntry;
     });
     if (facilitySelector) facilitySelector.disabled = false;
+    if (auditorSelector && !adminView) auditorSelector.disabled = false;
+    if (editFacilityButton && !adminView) editFacilityButton.disabled = !hasFacility || catalogLocked;
+    if (deleteFacilityButton && !adminView) deleteFacilityButton.disabled = !hasFacility || catalogLocked;
+
     document.getElementById('administratorFacilityNotice').hidden = !adminView;
     auditForm.hidden = false;
     document.getElementById('adminEquipmentCalculator').hidden = !adminView;
-    document.getElementById('auditPhotoUpload').hidden = adminView;
+    document.getElementById('auditPhotoUpload').hidden = adminView || disableAuditorEntry;
     document.getElementById('auditSubmissionPanel').hidden = false;
-    document.getElementById('historyActionHeader').hidden = adminView;
+    document.getElementById('historyActionHeader').hidden = adminView || disableAuditorEntry;
     const hostelSaveButton = document.querySelector('#hostelNameGroup button');
-    if (hostelSaveButton) hostelSaveButton.hidden = adminView;
+    if (hostelSaveButton) hostelSaveButton.hidden = adminView || disableAuditorEntry;
     document.getElementById('equipmentSubmitButton').textContent = adminView
         ? 'Calculate only'
         : 'Calculate and Add Inventory';
@@ -679,8 +1033,11 @@ function setFacilityReadOnly() {
 function resetFacilityEntryAfterSubmission() {
     selectedFacility = '';
     selectedHostelName = '';
+    cancelEditFacility();
+    resetTransientFacilityEntryInputs();
     initializeFacilitySelector();
     loadActiveAudit();
+    if (typeof syncReportFacilityToCurrentAudit === 'function') syncReportFacilityToCurrentAudit();
     switchPage('facilities');
 }
 
@@ -718,11 +1075,20 @@ function persistCurrentAuditEvidence() {
 async function loadFacilityCatalog() {
     try {
         const { facilities } = await apiRequest('/api/facilities');
-        const names = (Array.isArray(facilities) ? facilities : [])
-            .map(facility => facility && facility.name)
-            .filter(name => typeof name === 'string' && name.trim());
+        const entries = (Array.isArray(facilities) ? facilities : [])
+            .filter(facility => facility && typeof facility.name === 'string' && facility.name.trim())
+            .map(facility => ({
+                id: facility.id || facility.name,
+                name: facility.name,
+                sort_order: facility.sort_order ?? 0,
+                isSubmitted: Boolean(facility.isSubmitted)
+            }));
         facilityNames.length = 0;
-        facilityNames.push(...names);
+        facilityNames.push(...entries.map(entry => entry.name));
+        if (typeof facilityCatalog !== 'undefined' && Array.isArray(facilityCatalog)) {
+            facilityCatalog.length = 0;
+            facilityCatalog.push(...entries);
+        }
     } catch (error) {
         console.error('Unable to load the facility catalogue; using the currently loaded list.', error);
     }
@@ -814,6 +1180,10 @@ async function addEquipment() {
         return;
     }
     if (!await ensureAuditNotApproved(getCurrentAudit(false))) return;
+    if (typeof isAuditSubmittedForApproval === 'function' && isAuditSubmittedForApproval(getCurrentAudit(false))) {
+        alert('Equipment cannot be added after an audit has been submitted for approval.');
+        return;
+    }
     const category = document.getElementById('equipmentCategory').value;
     const name = document.getElementById('equipment').value.trim();
     const watts = parseFloat(document.getElementById('wattage').value);
@@ -838,7 +1208,8 @@ async function addEquipment() {
     document.getElementById('auditForm').reset();
     calculateAll();
     updateAuditReportDisplay();
-    handleFacilitySelection();
+    if (typeof initializeReportFacilitySelector === 'function') initializeReportFacilitySelector();
+    if (typeof syncReportFacilityToCurrentAudit === 'function') syncReportFacilityToCurrentAudit();
 }
 
 function calculateAdminEquipment() {

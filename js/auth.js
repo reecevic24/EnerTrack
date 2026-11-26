@@ -67,6 +67,7 @@ async function loginUser(user) {
         await loadSharedSubmissions();
         await loadAccountManagementState();
         await loadPersonalDashboard();
+        if (typeof setFacilityReadOnly === 'function') setFacilityReadOnly();
         updateUniversitySummary();
         updateSubmissionStatus();
         renderProfiles();
@@ -87,6 +88,14 @@ async function handleLogout() {
     audits = [];
     inventory = [];
     sharedSubmissions = [];
+    selectedFacility = '';
+    selectedHostelName = '';
+    selectedAdminAuditId = '';
+    if (Array.isArray(facilityNames)) facilityNames.length = 0;
+    if (typeof facilityCatalog !== 'undefined' && Array.isArray(facilityCatalog)) facilityCatalog.length = 0;
+    if (typeof cancelEditFacility === 'function') cancelEditFacility();
+    if (typeof initializeFacilitySelector === 'function') initializeFacilitySelector();
+    if (typeof setFacilityReadOnly === 'function') setFacilityReadOnly();
     equipmentDetails = { actual: [], recommended: [] };
     renderEquipmentDetails();
     renderInventoryTable();

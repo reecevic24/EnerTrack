@@ -865,3 +865,302 @@ test('accepts a six-character registration password at the validation boundary',
     const body = await response.json();
     assert.deepEqual(body.details.map(issue => issue.field), ['email']);
 });
+
+test('facility edit and delete endpoints require authentication and protect submitted facilities', async () => {
+    const [patchResponse, deleteResponse] = await Promise.all([
+        fetch(`${baseUrl}/api/facilities/Science%20Block`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: 'New Science Block' })
+        }),
+        fetch(`${baseUrl}/api/facilities/Science%20Block`, {
+            method: 'DELETE'
+        })
+    ]);
+    assert.equal(patchResponse.status, 401);
+    assert.equal(deleteResponse.status, 401);
+
+    const auditRoutes = fs.readFileSync(require.resolve('../server/routes/audits'), 'utf8');
+    assert.match(auditRoutes, /router\.patch\('\/facilities\/:facilityId', requireAuditor/);
+    assert.match(auditRoutes, /router\.delete\('\/facilities\/:facilityId', requireAuditor/);
+    assert.match(auditRoutes, /WHERE facility_id = \$1 AND status <> 'draft'[\s\S]*Submitted facilities cannot be edited\./);
+    assert.match(auditRoutes, /WHERE facility_id = \$1 AND status <> 'draft'[\s\S]*Submitted facilities cannot be deleted\./);
+
+    const cascadeMigration = fs.readFileSync(
+        require.resolve('../server/migrations/007_facility_cascade_update.sql'),
+        'utf8'
+    );
+    assert.match(cascadeMigration, /ON UPDATE CASCADE/);
+});
+
+test('auditors can edit and delete unsubmitted facilities and update the dropdown', async () => {
+    const response = await fetch(`${baseUrl}/js/audits.js`);
+    const createSelect = () => ({
+        options: [],
+        _value: '',
+        set innerHTML(value) {
+            if (value === '') {
+                this.options.length = 0;
+                this._value = '';
+            }
+        },
+        appendChild(option) { this.options.push(option); },
+        get value() { return this._value; },
+        set value(value) {
+            this._value = this.options.some(option => option.value === value) ? value : '';
+        }
+    });
+    const elements = new Map([
+        ['auditorFacilitySelector', createSelect()],
+        ['facilitySelector', createSelect()],
+        ['printFacilitySelector', createSelect()],
+        ['editFacilityNameInput', { value: 'New Block', focus() {} }],
+        ['editFacilityEntry', { hidden: false }],
+        ['editFacilityButton', { disabled: false }],
+        ['deleteFacilityButton', { disabled: false }],
+        ['saveEditedFacilityButton', { disabled: false }],
+        ['cancelEditFacilityButton', { disabled: false }],
+        ['hostelNameGroup', { style: {} }],
+        ['hostelName', { value: '' }]
+    ]);
+    const requests = [];
+    const draftAudit = {
+        id: 'draft-1',
+        key: 'Old Block',
+        facilityId: 'Old Block',
+        status: 'draft',
+        inventory: [],
+        facilityInfo: {},
+        historicalData: [],
+        photos: []
+    };
+    const context = {
+        document: {
+            getElementById: id => elements.get(id) || null,
+            createElement: () => ({ value: '', textContent: '' })
+        },
+        currentUser: { role: 'auditor', name: 'Test Auditor' },
+        facilityNames: ['Old Block', 'Library'],
+        facilityCatalog: [
+            { id: 'Old Block', name: 'Old Block', isSubmitted: false },
+            { id: 'Library', name: 'Library', isSubmitted: true }
+        ],
+        audits: [draftAudit],
+        sharedSubmissions: [{ id: 'lib-1', facilityId: 'Library', auditKey: 'Library', status: 'pending' }],
+        selectedFacility: 'Old Block',
+        selectedHostelName: '',
+        selectedAdminAuditId: '',
+        ADD_FACILITY_OPTION: '__add_facility__',
+        isAdministrator: () => false,
+        confirm: () => true,
+        alert(message) { throw new Error(message); },
+        apiRequest: async (url, options) => {
+            requests.push({ url, options });
+            if (options.method === 'PATCH') {
+                return { facility: { id: 'New Block', name: 'New Block', isSubmitted: false } };
+            }
+            return null;
+        },
+        loadActiveAudit() {},
+        initializeFacilitySelector() {},
+        initializeReportFacilitySelector() {},
+        syncReportFacilityToCurrentAudit() {},
+        updateSubmissionStatus() {},
+        saveAudits() {},
+        loadPersonalDashboard: async () => {},
+        console
+    };
+    vm.createContext(context);
+    vm.runInContext(await response.text(), context);
+    context.loadActiveAudit = () => {};
+    context.initializeReportFacilitySelector = () => {};
+    context.syncReportFacilityToCurrentAudit = () => {};
+    context.updateSubmissionStatus = () => {};
+    context.saveAudits = () => {};
+    context.loadPersonalDashboard = async () => {};
+
+    await context.saveEditedFacility();
+
+    assert.equal(requests[0].url, '/api/facilities/Old%20Block');
+    assert.equal(requests[0].options.method, 'PATCH');
+    assert.deepEqual(Array.from(context.facilityNames), ['New Block', 'Library']);
+    assert.equal(context.selectedFacility, 'New Block');
+    assert.equal(draftAudit.facilityId, 'New Block');
+    assert.equal(elements.get('auditorFacilitySelector').value, 'New Block');
+    assert.deepEqual(
+        elements.get('auditorFacilitySelector').options.map(option => option.value),
+        ['', 'New Block', 'Library', '__add_facility__']
+    );
+
+    await context.deleteSelectedFacility();
+
+    assert.equal(requests[1].url, '/api/facilities/New%20Block');
+    assert.equal(requests[1].options.method, 'DELETE');
+    assert.deepEqual(Array.from(context.facilityNames), ['Library']);
+    assert.equal(context.selectedFacility, '');
+    assert.equal(context.audits.length, 0);
+    assert.equal(elements.get('auditorFacilitySelector').value, '');
+    assert.deepEqual(
+        elements.get('auditorFacilitySelector').options.map(option => option.value),
+        ['', 'Library', '__add_facility__']
+    );
+});
+
+test('prevents editing or deleting a submitted facility and locks its fields when selected', async () => {
+    const response = await fetch(`${baseUrl}/js/audits.js`);
+    const controls = [];
+    const makeControl = (id) => {
+        const control = { id, disabled: false, hidden: false, textContent: '', value: '' };
+        controls.push(control);
+        return control;
+    };
+    const elements = new Map([
+        ['auditorFacilityEntry', makeControl('auditorFacilityEntry')],
+        ['adminFacilitySelection', makeControl('adminFacilitySelection')],
+        ['facilityAuditDetails', makeControl('facilityAuditDetails')],
+        ['facilityManageActions', makeControl('facilityManageActions')],
+        ['editFacilityButton', makeControl('editFacilityButton')],
+        ['deleteFacilityButton', makeControl('deleteFacilityButton')],
+        ['facilityLockHint', makeControl('facilityLockHint')],
+        ['newFacilityEntry', makeControl('newFacilityEntry')],
+        ['editFacilityEntry', makeControl('editFacilityEntry')],
+        ['auditorFacilitySelector', Object.assign(makeControl('auditorFacilitySelector'), { value: 'Library' })],
+        ['facilitySelector', makeControl('facilitySelector')],
+        ['administratorFacilityNotice', makeControl('administratorFacilityNotice')],
+        ['auditForm', Object.assign(makeControl('auditForm'), { contains: c => c.id === 'equipmentSubmitButton' })],
+        ['adminEquipmentCalculator', Object.assign(makeControl('adminEquipmentCalculator'), { contains: () => false })],
+        ['auditPhotoUpload', makeControl('auditPhotoUpload')],
+        ['auditSubmissionPanel', makeControl('auditSubmissionPanel')],
+        ['historyActionHeader', makeControl('historyActionHeader')],
+        ['equipmentSubmitButton', makeControl('equipmentSubmitButton')],
+        ['beginAuditRecommendationsButton', makeControl('beginAuditRecommendationsButton')],
+        ['facilityLocation', makeControl('facilityLocation')]
+    ]);
+    elements.get('newFacilityEntry').contains = () => false;
+    elements.get('editFacilityEntry').contains = () => false;
+    const pageFacilities = {
+        querySelectorAll: () => [
+            elements.get('auditorFacilitySelector'),
+            elements.get('editFacilityButton'),
+            elements.get('deleteFacilityButton'),
+            elements.get('facilityLocation'),
+            elements.get('equipmentSubmitButton'),
+            elements.get('beginAuditRecommendationsButton')
+        ]
+    };
+    elements.set('pageFacilities', pageFacilities);
+
+    const alerts = [];
+    let apiCalls = 0;
+    const context = {
+        document: {
+            getElementById: id => elements.get(id) || null,
+            querySelector: () => null
+        },
+        currentUser: { role: 'auditor' },
+        facilityNames: ['Library'],
+        facilityCatalog: [{ id: 'Library', name: 'Library', isSubmitted: true }],
+        audits: [{ id: 'audit-1', key: 'Library', facilityId: 'Library', status: 'pending', inventory: [] }],
+        sharedSubmissions: [{ id: 'audit-1', facilityId: 'Library', auditKey: 'Library', status: 'pending' }],
+        selectedFacility: 'Library',
+        selectedHostelName: '',
+        selectedAdminAuditId: '',
+        ADD_FACILITY_OPTION: '__add_facility__',
+        isAdministrator: () => false,
+        apiRequest: async () => { apiCalls += 1; },
+        alert: message => alerts.push(message),
+        confirm: () => true
+    };
+    vm.createContext(context);
+    vm.runInContext(await response.text(), context);
+
+    context.setFacilityReadOnly();
+    assert.equal(elements.get('facilityManageActions').hidden, false);
+    assert.equal(elements.get('editFacilityButton').disabled, true);
+    assert.equal(elements.get('deleteFacilityButton').disabled, true);
+    assert.equal(elements.get('facilityLocation').disabled, true);
+    assert.equal(elements.get('equipmentSubmitButton').disabled, true);
+    assert.equal(elements.get('beginAuditRecommendationsButton').disabled, true);
+    assert.match(elements.get('facilityLockHint').textContent, /locked/i);
+
+    context.startEditFacility();
+    await context.deleteSelectedFacility();
+    assert.equal(apiCalls, 0);
+    assert.deepEqual(alerts, [
+        'Submitted facilities cannot be edited.',
+        'Submitted facilities cannot be deleted.'
+    ]);
+});
+
+test('adding equipment as an auditor preserves the selected facility and syncs the report selector', async () => {
+    const response = await fetch(`${baseUrl}/js/audits.js`);
+    let formReset = false;
+    let syncedReport = 0;
+    const reportOptions = [];
+    const reportSelector = {
+        options: reportOptions,
+        _value: '',
+        set innerHTML(value) {
+            if (value === '') {
+                this.options.length = 0;
+                this._value = '';
+            }
+        },
+        appendChild(option) { this.options.push(option); },
+        get value() { return this._value; },
+        set value(value) { this._value = value; }
+    };
+    const fields = {
+        equipmentCategory: { value: 'Lighting' },
+        equipment: { value: 'LED Tube' },
+        wattage: { value: '18' },
+        availableNumber: { value: '10' },
+        operatingHours: { value: '8' },
+        auditForm: { reset() { formReset = true; } },
+        facilitySelector: { value: '' },
+        reportFacilitySelector: reportSelector,
+        generateAuditReportButton: { disabled: true }
+    };
+    const record = {
+        id: 'audit-draft',
+        key: 'Engineering Block',
+        facilityId: 'Engineering Block',
+        status: 'draft',
+        inventory: []
+    };
+    const context = {
+        document: {
+            getElementById: id => fields[id] || null,
+            createElement: () => ({ value: '', textContent: '' })
+        },
+        currentUser: { role: 'auditor' },
+        selectedFacility: 'Engineering Block',
+        selectedHostelName: '',
+        audits: [record],
+        inventory: record.inventory,
+        isAdministrator: () => false,
+        ensureAuditNotApproved: async () => true,
+        isAuditSubmittedForApproval: () => false,
+        saveAudits() {},
+        updateUniversitySummary() {},
+        updateSubmissionStatus() {},
+        calculateAll() {},
+        updateAuditReportDisplay() {},
+        alert(message) { throw new Error(message); }
+    };
+    vm.createContext(context);
+    vm.runInContext(await response.text(), context);
+    context.saveAudits = () => {};
+    context.updateUniversitySummary = () => {};
+    context.updateSubmissionStatus = () => {};
+    context.calculateAll = () => {};
+    context.updateAuditReportDisplay = () => {};
+
+    await context.addEquipment();
+
+    assert.equal(formReset, true);
+    assert.equal(context.selectedFacility, 'Engineering Block');
+    assert.equal(record.inventory.length, 1);
+    assert.equal(record.inventory[0].name, 'LED Tube');
+    assert.equal(reportSelector.value, 'audit:audit-draft');
+});

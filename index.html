@@ -209,10 +209,23 @@
                         <label for="auditorFacilitySelector">Select facility</label>
                         <select id="auditorFacilitySelector" onchange="handleAuditorFacilitySelection()"></select>
                         <p class="facility-hint">Choose a saved facility or add a new one.</p>
+                        <div class="action-row" id="facilityManageActions" hidden>
+                            <button id="editFacilityButton" class="btn-action" type="button" onclick="startEditFacility()">Edit facility</button>
+                            <button id="deleteFacilityButton" class="btn-delete" type="button" onclick="deleteSelectedFacility()">Delete facility</button>
+                        </div>
+                        <p id="facilityLockHint" class="facility-hint" hidden></p>
                         <div class="form-group" id="newFacilityEntry" hidden>
                             <label for="newFacilityNameInput">New facility name</label>
                             <input type="text" id="newFacilityNameInput" maxlength="120" placeholder="Enter facility name">
                             <button class="btn-action" type="button" onclick="saveNewFacility()">Save facility and continue</button>
+                        </div>
+                        <div class="form-group" id="editFacilityEntry" hidden>
+                            <label for="editFacilityNameInput">Edit facility name</label>
+                            <input type="text" id="editFacilityNameInput" maxlength="120" placeholder="Enter updated facility name">
+                            <div class="action-row">
+                                <button id="saveEditedFacilityButton" class="btn-action btn-green-action" type="button" onclick="saveEditedFacility()">Save changes</button>
+                                <button id="cancelEditFacilityButton" class="btn-action" type="button" onclick="cancelEditFacility()">Cancel</button>
+                            </div>
                         </div>
                     </div>
                     <div class="form-group" id="adminFacilitySelection" hidden>

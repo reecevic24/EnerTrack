@@ -27,6 +27,7 @@ const DEFAULT_EMISSION_FACTOR = 0.05;
 
 // Facility options are loaded from /api/facilities after login.
 let facilityNames = [];
+let facilityCatalog = [];
 
 const API_BASE = String(window.ENERTRACK_API_BASE_URL || '').replace(/\/+$/, '');
 

@@ -337,10 +337,17 @@ function visibleAuditQuery(user, auditId) {
 router.get('/facilities', async (req, res, next) => {
     try {
         const result = await pool.query(
-            `SELECT id, display_name AS name, sort_order
-             FROM facilities
-             WHERE is_user_created = true
-             ORDER BY sort_order, display_name`
+            `SELECT f.id,
+                    f.display_name AS name,
+                    f.sort_order,
+                    EXISTS (
+                        SELECT 1 FROM audits a
+                        WHERE a.facility_id = f.id
+                          AND a.status <> 'draft'
+                    ) AS "isSubmitted"
+             FROM facilities f
+             WHERE f.is_user_created = true
+             ORDER BY f.sort_order, f.display_name`
         );
         res.json({ facilities: result.rows });
     } catch (error) {
@@ -369,7 +376,13 @@ router.post('/facilities', requireAuditor, async (req, res, next) => {
                  RETURNING id, display_name AS name, sort_order`,
                 [existing.rows[0].id]
             );
-            return res.status(201).json({ facility: promoted.rows[0] });
+            const submitted = await pool.query(
+                `SELECT 1 FROM audits WHERE facility_id = $1 AND status <> 'draft' LIMIT 1`,
+                [promoted.rows[0].id]
+            );
+            return res.status(201).json({
+                facility: { ...promoted.rows[0], isSubmitted: submitted.rowCount > 0 }
+            });
         }
         const result = await pool.query(
             `INSERT INTO facilities (id, display_name, sort_order, is_user_created)
@@ -377,12 +390,143 @@ router.post('/facilities', requireAuditor, async (req, res, next) => {
              RETURNING id, display_name AS name, sort_order`,
             [name]
         );
-        res.status(201).json({ facility: result.rows[0] });
+        res.status(201).json({ facility: { ...result.rows[0], isSubmitted: false } });
     } catch (error) {
         if (error.code === '23505') {
             return res.status(409).json({ error: 'A facility with this name already exists.' });
         }
         next(error);
+    }
+});
+
+router.patch('/facilities/:facilityId', requireAuditor, async (req, res, next) => {
+    const facilitySchema = z.object({
+        name: z.string().trim().min(1).max(120)
+    });
+    const client = await pool.connect();
+    try {
+        const currentId = String(req.params.facilityId || '').trim();
+        if (!currentId) {
+            return res.status(400).json({ error: 'Facility identifier is required.' });
+        }
+        const { name } = facilitySchema.parse(req.body);
+        await client.query('BEGIN');
+        const existing = await client.query(
+            'SELECT id, display_name, sort_order, is_user_created FROM facilities WHERE id = $1 FOR UPDATE',
+            [currentId]
+        );
+        if (!existing.rowCount || !existing.rows[0].is_user_created) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: 'Facility not found.' });
+        }
+        const submitted = await client.query(
+            `SELECT status FROM audits
+             WHERE facility_id = $1 AND status <> 'draft'
+             LIMIT 1`,
+            [currentId]
+        );
+        if (submitted.rowCount) {
+            await client.query('ROLLBACK');
+            return res.status(409).json({ error: 'Submitted facilities cannot be edited.' });
+        }
+        if (currentId === 'Hostels' && name !== 'Hostels') {
+            const hostelAudits = await client.query(
+                `SELECT 1 FROM audits WHERE facility_id = $1 AND hostel_name <> '' LIMIT 1`,
+                [currentId]
+            );
+            if (hostelAudits.rowCount) {
+                await client.query('ROLLBACK');
+                return res.status(409).json({ error: 'Hostels cannot be renamed while hostel audits exist.' });
+            }
+        }
+        const duplicate = await client.query(
+            'SELECT id FROM facilities WHERE lower(display_name) = lower($1) AND id <> $2',
+            [name, currentId]
+        );
+        if (duplicate.rowCount) {
+            await client.query('ROLLBACK');
+            return res.status(409).json({ error: 'A facility with this name already exists.' });
+        }
+        const updated = await client.query(
+            `UPDATE facilities
+             SET id = $1, display_name = $1
+             WHERE id = $2
+             RETURNING id, display_name AS name, sort_order`,
+            [name, currentId]
+        );
+        if (name !== currentId) {
+            await client.query(
+                `UPDATE audits
+                 SET report_text = '', report_generated_at = NULL, updated_at = now()
+                 WHERE facility_id = $1 AND status = 'draft'`,
+                [name]
+            );
+        }
+        await client.query('COMMIT');
+        res.json({
+            previousId: currentId,
+            facility: { ...updated.rows[0], isSubmitted: false }
+        });
+    } catch (error) {
+        await client.query('ROLLBACK');
+        if (error.code === '23505') {
+            return res.status(409).json({ error: 'A facility with this name already exists.' });
+        }
+        next(error);
+    } finally {
+        client.release();
+    }
+});
+
+router.delete('/facilities/:facilityId', requireAuditor, async (req, res, next) => {
+    const client = await pool.connect();
+    try {
+        const currentId = String(req.params.facilityId || '').trim();
+        if (!currentId) {
+            return res.status(400).json({ error: 'Facility identifier is required.' });
+        }
+        await client.query('BEGIN');
+        const existing = await client.query(
+            'SELECT id, is_user_created FROM facilities WHERE id = $1 FOR UPDATE',
+            [currentId]
+        );
+        if (!existing.rowCount || !existing.rows[0].is_user_created) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: 'Facility not found.' });
+        }
+        const submitted = await client.query(
+            `SELECT status FROM audits
+             WHERE facility_id = $1 AND status <> 'draft'
+             LIMIT 1`,
+            [currentId]
+        );
+        if (submitted.rowCount) {
+            await client.query('ROLLBACK');
+            return res.status(409).json({ error: 'Submitted facilities cannot be deleted.' });
+        }
+        const otherAudits = await client.query(
+            `SELECT 1 FROM audits
+             WHERE facility_id = $1 AND auditor_id <> $2
+             LIMIT 1`,
+            [currentId, req.session.user.id]
+        );
+        if (otherAudits.rowCount) {
+            await client.query('ROLLBACK');
+            return res.status(409).json({ error: 'This facility has an active audit by another auditor and cannot be deleted.' });
+        }
+        await client.query(
+            `DELETE FROM audits
+             WHERE facility_id = $1 AND auditor_id = $2 AND status = 'draft'`,
+            [currentId, req.session.user.id]
+        );
+        await client.query('DELETE FROM facilities WHERE id = $1', [currentId]);
+        await client.query('COMMIT');
+        res.sendStatus(204);
+    } catch (error) {
+        await client.query('ROLLBACK');
+        next(error);
+    } finally {
+        client.release();
     }
 });
 

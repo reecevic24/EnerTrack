@@ -8,21 +8,27 @@ function formatBillingMonth(month) {
     return `${match[1]}-${monthName}`;
 }
 
+function isEvidenceLocked() {
+    if (isAdministrator()) return true;
+    return typeof isCurrentAuditLocked === 'function' && isCurrentAuditLocked();
+}
+
 function renderHistoricalData(entries) {
     const body = document.getElementById('historyBody');
     if (!body) return;
+    const locked = isEvidenceLocked();
     body.innerHTML = '';
     if (!entries.length) {
         const row = document.createElement('tr');
         const cell = document.createElement('td');
-        cell.colSpan = isAdministrator() ? 3 : 4;
+        cell.colSpan = locked ? 3 : 4;
         cell.className = 'empty-state';
         cell.textContent = 'No historical bill data entered.';
         row.appendChild(cell);
         body.appendChild(row);
         return;
     }
-    entries.slice().sort((a, b) => a.month.localeCompare(b.month)).forEach((entry, index) => {
+    entries.slice().sort((a, b) => a.month.localeCompare(b.month)).forEach(entry => {
         const row = document.createElement('tr');
         [formatBillingMonth(entry.month), Number(entry.kwh).toLocaleString('en-US'), `KES ${Number(entry.cost).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`].forEach(value => {
             const cell = document.createElement('td');
@@ -30,13 +36,14 @@ function renderHistoricalData(entries) {
             row.appendChild(cell);
         });
         const action = document.createElement('td');
-        if (!isAdministrator()) {
+        if (!locked) {
             const remove = document.createElement('button');
             remove.type = 'button';
             remove.className = 'btn-delete';
             remove.textContent = 'Remove';
             remove.addEventListener('click', () => {
-                historicalData.splice(index, 1);
+                const index = historicalData.findIndex(item => item.month === entry.month);
+                if (index >= 0) historicalData.splice(index, 1);
                 renderHistoricalData(historicalData);
                 persistCurrentAuditEvidence();
             });
@@ -49,6 +56,14 @@ function renderHistoricalData(entries) {
 
 function addHistoricalEntry() {
     if (isAdministrator()) return;
+    if (typeof selectedFacility === 'string' && !selectedFacility) {
+        alert('Select a facility before adding historical bill data.');
+        return;
+    }
+    if (typeof isCurrentAuditLocked === 'function' && isCurrentAuditLocked()) {
+        alert('Submitted or approved facility audits cannot be modified.');
+        return;
+    }
     const month = document.getElementById('historyMonth').value;
     const kwh = Number(document.getElementById('historyKwh').value);
     const cost = Number(document.getElementById('historyCost').value);
@@ -70,6 +85,7 @@ function addHistoricalEntry() {
 function renderAuditPhotos(photos) {
     const gallery = document.getElementById('auditPhotoGallery');
     if (!gallery) return;
+    const locked = isEvidenceLocked();
     gallery.innerHTML = '';
     photos.forEach((photo, index) => {
         const figure = document.createElement('figure');
@@ -81,7 +97,7 @@ function renderAuditPhotos(photos) {
         const caption = document.createElement('figcaption');
         caption.textContent = photo.name || `Audit photo ${index + 1}`;
         figure.append(image, caption);
-        if (!isAdministrator()) {
+        if (!locked) {
             const remove = document.createElement('button');
             remove.type = 'button';
             remove.className = 'btn-delete';
@@ -124,6 +140,16 @@ function resizeAuditPhoto(file) {
 
 async function handleAuditPhotos(files) {
     if (isAdministrator()) return;
+    if (typeof selectedFacility === 'string' && !selectedFacility) {
+        alert('Select a facility before adding audit photos.');
+        document.getElementById('auditPhotos').value = '';
+        return;
+    }
+    if (typeof isCurrentAuditLocked === 'function' && isCurrentAuditLocked()) {
+        alert('Submitted or approved facility audits cannot be modified.');
+        document.getElementById('auditPhotos').value = '';
+        return;
+    }
     const selectedFiles = Array.from(files || []);
     if (!selectedFiles.length) return;
     if (selectedFiles.some(file => !file.type.startsWith('image/'))) {
